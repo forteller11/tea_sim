@@ -59,6 +59,7 @@ public class CreateLiquid : MonoBehaviour
             int index = i + j * Resolution.x;
             var cell = _screenCells[index];
             cell.Alpha = 0;
+            cell.NearestNormal = float3.zero;
             
             float2 cellScreenPos = new float2((float) i / Resolution.x, (float) j / Resolution.y);
             foreach (var part in _particles)
@@ -68,6 +69,8 @@ public class CreateLiquid : MonoBehaviour
                 {
                     cell.Alpha = math.lerp(cell.Alpha, 1, 0.5f);
                     cell.Alpha = 1;
+                    
+                    cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
                 }
             }
 
@@ -80,7 +83,7 @@ public class CreateLiquid : MonoBehaviour
         Gizmos.color = Color.red;
 
         float cellSize = 1;
-        float cellHalfSize = cellSize / 2f;
+        float cellHalfSize = cellSize *.75f;
         if (_screenCells != null)
             for (int i = 0; i < Resolution.x; i++)
             for (int j = 0; j < Resolution.y; j++)
@@ -88,7 +91,10 @@ public class CreateLiquid : MonoBehaviour
                 int index = i + j * Resolution.x;
                 var cell = _screenCells[index];
                 var pos = new Vector3(i, j, 0);
-                Gizmos.color = new Color(cell.Alpha, cell.Alpha, cell.Alpha);
+
+                Color color = new Color(cell.NearestNormal.x, cell.NearestNormal.y, cell.NearestNormal.z) * cell.Alpha;
+                color.a = 1f;
+                Gizmos.color = color;
                 Gizmos.DrawCube(pos, new Vector3(cellHalfSize, cellHalfSize, cellHalfSize));
             }
     }
@@ -117,7 +123,22 @@ public struct ScreenParticle
     public float2 ClipPosition;
     public float CameraDepth;
     public float Radius;
+    public float3 Normal;
 
+    public float3 GetScreenNormal(float2 clipPoint)
+    {
+        float distFromCenter = math.distance(ClipPosition, clipPoint);
+        float2 toEdge = clipPoint - ClipPosition;
+        float2 toEdgeDir = math.normalize(toEdge);
+        float3 tangent = new float3(toEdgeDir.x, toEdgeDir.y, 0);
+        float3 ortho = new float3(0, 0, 1);
+
+        float distFromCenterNorm = distFromCenter / Radius;
+
+        //todo we need to acos interp it I think not just a lerp it to be correct for spheres
+        float3 normal = math.lerp(ortho, tangent, distFromCenterNorm);
+        return normal;
+    }
     public override string ToString()
     {
         return $"Pos: {ClipPosition}, Radius: {Radius}, Depth: {CameraDepth}";
@@ -128,4 +149,5 @@ public struct ScreenParticle
 public struct ScreenCell
 {
     public float Alpha;
+    public float3 NearestNormal;
 }
