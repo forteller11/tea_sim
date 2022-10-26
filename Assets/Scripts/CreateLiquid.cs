@@ -50,7 +50,7 @@ public class CreateLiquid : MonoBehaviour
         _circleData = new ComputeBuffer(_particles.Count, 4*3, ComputeBufferType.Structured);
         
         int kernalIndex = _liquidShader.FindKernel("main");
-        _liquidShader.SetBuffer(kernalIndex, "particles", _circleData);
+        _liquidShader.SetBuffer(kernalIndex, "Particles", _circleData);
 
         // _particlesPositions = new List<Vector3>(Renderers.Count);
     }

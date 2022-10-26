@@ -9,13 +9,13 @@ struct particle
     float3 ScreenPosition;
 };
 
-RWStructuredBuffer<particle> Results;
+RWStructuredBuffer<particle> Particles;
 
 [numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
     int index = id.x + id.y * 8;
-    particle p = Results[index];
+    particle p = Particles[index];
     p.ScreenPosition = float3(id.x & id.y, (id.x & 15)/15.0, (id.y & 15)/15.0);
-    Results[index] = p;
+    Particles[index] = p;
 }
