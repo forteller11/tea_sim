@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Mathematics;
@@ -43,13 +44,13 @@ public class CreateLiquid : MonoBehaviour
             var part = new ScreenParticle();
             part.ClipPosition = correctedClipPos.xy;
             //todo nearclip somehow effects radius and it shouldnt....
-            part.Radius = (1/(clipPos.z));
+            part.Radius = (1/(clipPos.z))*0.5f;
             part.CameraDepth = clipPos.z ;
             _particles[i] = part;
             
-            Debug.Log(camPos);
-            Debug.Log(correctedClipPos);
-            Debug.Log(part.ToString());
+            // Debug.Log(camPos);
+            // Debug.Log(correctedClipPos);
+            // Debug.Log(part.ToString());
         }
         #endregion
         
@@ -60,17 +61,25 @@ public class CreateLiquid : MonoBehaviour
             var cell = _screenCells[index];
             cell.Alpha = 0;
             cell.NearestNormal = float3.zero;
-            
+            cell.NearestParticle = Single.PositiveInfinity;
+            cell.FarthestParticle = Single.NegativeInfinity;
+
             float2 cellScreenPos = new float2((float) i / Resolution.x, (float) j / Resolution.y);
             foreach (var part in _particles)
             {
-                float distance = math.distance(cellScreenPos, part.ClipPosition.xy);
-                if (distance < part.Radius)
+                //todo make this the distance to the sphere at screen... not just the center
+                float screenDist = math.distance(cellScreenPos, part.ClipPosition.xy);
+                if (screenDist < part.Radius)
                 {
+                    float distance = part.CameraDepth;
                     cell.Alpha = math.lerp(cell.Alpha, 1, 0.5f);
-                    cell.Alpha = 1;
-                    
-                    cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
+                    if (distance < cell.NearestParticle)
+                    {
+                        cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
+                    }
+
+                    cell.NearestParticle = math.min(cell.NearestParticle, distance);
+                    cell.FarthestParticle = math.max(cell.FarthestParticle, distance);
                 }
             }
 
@@ -149,5 +158,7 @@ public struct ScreenParticle
 public struct ScreenCell
 {
     public float Alpha;
+    public float NearestParticle;
+    public float FarthestParticle;
     public float3 NearestNormal;
 }
