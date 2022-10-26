@@ -25,22 +25,31 @@ public class CreateLiquid : MonoBehaviour
         var cam = Camera.main;
         var worldToViewMat = cam.worldToCameraMatrix;
         var aspectRatio = (float) Screen.width / Screen.height;
-        var projectMat = float4x4.PerspectiveFov(cam.fieldOfView, aspectRatio, cam.nearClipPlane, cam.farClipPlane);
+        float nearClip = cam.nearClipPlane;
+        float farClip = cam.farClipPlane;
+        float fovRads = math.radians(cam.fieldOfView);
+        var projectMat = float4x4.PerspectiveFov(fovRads, aspectRatio, nearClip, farClip);
 
         for (var i = 0; i < _particles.Length; i++)
         {
             var go = Renderers[i].transform;
             var worldPos = go.position;
-            var camSpace = worldToViewMat * new Vector4(worldPos.x, worldPos.y, worldPos.z, 1);
-            var clipSpace = math.mul(projectMat, camSpace);
+            var camPos = worldToViewMat * new Vector4(worldPos.x, worldPos.y, worldPos.z, 1);
+            var clipPos = math.mul(projectMat, camPos);
+            var correctedClipPos = clipPos.xy;
+            correctedClipPos /= clipPos.w;
+            correctedClipPos = (correctedClipPos + 1) / 2;
+            
             var part = new ScreenParticle();
-            part.Position = (clipSpace.xyz + 1)/2;
-            part.Radius = 0.1f;
+            part.ClipPosition = correctedClipPos.xy;
+            //todo nearclip somehow effects radius and it shouldnt....
+            part.Radius = (1/(clipPos.z));
+            part.CameraDepth = clipPos.z ;
             _particles[i] = part;
             
-            Debug.Log(camSpace);
-            Debug.Log(clipSpace);
-            Debug.Log(part.Position);
+            Debug.Log(camPos);
+            Debug.Log(correctedClipPos);
+            Debug.Log(part.ToString());
         }
         #endregion
         
@@ -54,7 +63,7 @@ public class CreateLiquid : MonoBehaviour
             float2 cellScreenPos = new float2((float) i / Resolution.x, (float) j / Resolution.y);
             foreach (var part in _particles)
             {
-                float distance = math.distance(cellScreenPos, part.Position.xy);
+                float distance = math.distance(cellScreenPos, part.ClipPosition.xy);
                 if (distance < part.Radius)
                 {
                     cell.Alpha = math.lerp(cell.Alpha, 1, 0.5f);
@@ -105,8 +114,14 @@ public class CreateLiquidInspector : Editor
 [StructLayout(LayoutKind.Sequential)]
 public struct ScreenParticle
 {
-    public float3 Position;
+    public float2 ClipPosition;
+    public float CameraDepth;
     public float Radius;
+
+    public override string ToString()
+    {
+        return $"Pos: {ClipPosition}, Radius: {Radius}, Depth: {CameraDepth}";
+    }
 }
 
 [StructLayout(LayoutKind.Sequential)]
