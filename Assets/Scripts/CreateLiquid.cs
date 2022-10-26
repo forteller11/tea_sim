@@ -31,7 +31,7 @@ public class CreateLiquid : MonoBehaviour
 
     [SerializeField] private ComputeShader _liquidShader;
     private ComputeBuffer _circleData;
-    private List<Particle> _particles;
+    private Particle [] _particles;
     // private List<Vector3> _particlesPositions;
     void Start()
     {
@@ -42,15 +42,14 @@ public class CreateLiquid : MonoBehaviour
         // cmd.DrawMesh(RenderingUtils.fullscreenMesh, Matrix4x4.identity, material, 0, pass);
         // cmd.SetViewProjectionMatrices(camera.worldToCameraMatrix, camera.projectionMatrix);
 
-        _particles = new List<Particle>(Renderers.Count);
-        for (int i = 0; i < Renderers.Count; i++)
-        {
-            _particles.Add(new Particle());    
-        }
-        _circleData = new ComputeBuffer(_particles.Count, 4*3, ComputeBufferType.Structured);
+        _particles = new Particle[Renderers.Count];
         
+        _circleData = new ComputeBuffer(_particles.Length, 4*3, ComputeBufferType.Structured);
+        _circleData.SetData(_particles);
+
         int kernalIndex = _liquidShader.FindKernel("main");
         _liquidShader.SetBuffer(kernalIndex, "Particles", _circleData);
+
 
         // _particlesPositions = new List<Vector3>(Renderers.Count);
     }
@@ -60,20 +59,20 @@ public class CreateLiquid : MonoBehaviour
     {
         #region
 
-        for (var i = 0; i < _particles.Count; i++)
+        for (var i = 0; i < _particles.Length; i++)
         {
             var part = _particles[i];
-            part.ScreenPosition.x = Random.value;
-            part.ScreenPosition.y = Random.value;
-            part.ScreenPosition.z = Random.value;
+            // part.ScreenPosition.x = part.ScreenPosition.x;
+            // part.ScreenPosition.y = part.ScreenPosition.y;
+            // part.ScreenPosition.z = 0;
             _particles[i] = part;
         }
         #endregion
         
-        _circleData.SetData(_particles);
         int kernalIndex = _liquidShader.FindKernel("main");
-        _liquidShader.Dispatch(kernalIndex, 8, 8, 1);
-
+        // _circleData.SetData(_particles);
+        _liquidShader.Dispatch(kernalIndex, 2, 1, 1);
+        _circleData.GetData(_particles);
 
         // if (Keyboard.current.spaceKey.wasPressedThisFrame)
         // {
@@ -92,10 +91,11 @@ public class CreateLiquid : MonoBehaviour
 
     private void OnDrawGizmos()
     {
+        Gizmos.color = Color.red;
         if (_particles != null)
             foreach (var part in _particles)
             {
-                Gizmos.DrawSphere(part.ScreenPosition, 0.2f);
+                Gizmos.DrawSphere(part.ScreenPosition * 10, 0.2f);
             }
     }
 }
