@@ -5,6 +5,7 @@ using Unity.Mathematics;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
 
 
 public class CreateLiquid : MonoBehaviour
@@ -17,18 +18,41 @@ public class CreateLiquid : MonoBehaviour
     private Texture2D _texture;
     [SerializeField] Material _material;
     private Color[] _colors;
-    
+
+    [Header("Compute")] public ComputeShader ComputeShader;
+    public ComputeBuffer _particlesBuffer;
+    private ComputeBuffer _screenCellsBuffer;
+    private RenderTexture _renderTexture;
+
+    private int _kernalHandle = -1;
+    private int _particleHandle = -1;
+    private int _screenCellsHandle = -1;
+    private int _renderHandle = -1;
     void Start()
     {
-        _particles = new ScreenParticle[Renderers.Count];
-        _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
-        _texture = new Texture2D(ScreenResolution.x, ScreenResolution.y, TextureFormat.RGBA32, false, true);
-        _colors = new Color[_texture.width * _texture.height];
+   
+            _particles = new ScreenParticle[Renderers.Count];
+            _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
+            _texture = new Texture2D(ScreenResolution.x, ScreenResolution.y, TextureFormat.RGBA32, false, true);
+            _colors = new Color[_texture.width * _texture.height];
+        
+            unsafe
+            {
+                _particlesBuffer = new ComputeBuffer(_particles.Length, sizeof(ScreenParticle));
+                _screenCellsBuffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
+            }
+
+            _renderTexture = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
+            _renderTexture.enableRandomWrite = true;
+            _kernalHandle = ComputeShader.FindKernel("main");
+            _particleHandle = Shader.PropertyToID("ScreenParticles");
+            _screenCellsHandle = Shader.PropertyToID("ScreenCells");
+            _renderHandle = Shader.PropertyToID("Output");
+
     }
 
     void Update()
     {
-        Debug.Log("update");
         #region
         var cam = Camera.main;
         var worldToViewMat = cam.worldToCameraMatrix;
@@ -54,10 +78,6 @@ public class CreateLiquid : MonoBehaviour
             part.Radius = (1/(clipPos.z))*0.5f;
             part.CameraDepth = clipPos.z ;
             _particles[i] = part;
-            
-            // Debug.Log(camPos);
-            // Debug.Log(correctedClipPos);
-            // Debug.Log(part.ToString());
         }
         #endregion
         
@@ -98,8 +118,19 @@ public class CreateLiquid : MonoBehaviour
         _texture.SetPixels(_colors);
         _texture.Apply();
         #endregion
+        
+        #region compute
+        _particlesBuffer.SetData(_particles);
+        _screenCellsBuffer.SetData(_screenCells);
+        
+        ComputeShader.SetFloat("ParticlesLength", _particles.Length);
+        ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
+        ComputeShader.SetBuffer(_kernalHandle, _particleHandle, _particlesBuffer);
+        ComputeShader.SetBuffer(_kernalHandle, _screenCellsHandle, _screenCellsBuffer);
+        ComputeShader.SetTexture(_kernalHandle, _renderHandle, _renderTexture);
+        #endregion
 
-        #region apply tex
+        #region apply texture
         _material.mainTexture = _texture;
         #endregion
     }
@@ -144,6 +175,7 @@ public class CreateLiquidInspector : Editor
     }
 }
 
+[GenerateHLSL(PackingRules.Exact, false)]
 [StructLayout(LayoutKind.Sequential)]
 public struct ScreenParticle
 {
@@ -172,6 +204,7 @@ public struct ScreenParticle
     }
 }
 
+[GenerateHLSL(PackingRules.Exact, false)]
 [StructLayout(LayoutKind.Sequential)]
 public struct ScreenCell
 {

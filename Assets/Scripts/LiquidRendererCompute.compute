@@ -1,31 +1,22 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel main
+#include "Assets/Scripts/CreateLiquid.cs.hlsl"
 
-// Create a RenderTexture with enableRandomWrite flag and set it
-// with cs.SetTexture
-// RWTexture2D<float4> Result;
-struct particle
-{
-    float3 ScreenPosition;
-    float ScreenRadius;
-};
-
-StructuredBuffer<particle> Particles;
-RWTexture2D<float4> Texture;
+float ParticlesLength;
+float4 CellsDimension;
+StructuredBuffer<ScreenParticle> ScreenParticles;
+StructuredBuffer<ScreenCell> ScreenCells;
+RWTexture2D<float4> Output;
+// Texture2D<float4> ScreenGrab;
 
 [numthreads(1,1,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
-    int2 texIndex = id.xy;
-    float present = 0;
-    for (int i = 0; i < 2; i++ )
-    {
-        //todo get screen pos...
-        //todo does part overlap screen pos?
-        //record closest + farther hit...
-    }
     int index = id.x;
-    particle p = Particles[index];
-    p.ScreenPosition.x += 0.1;
-    Particles[index] = p;
+    int index2D = id.xy;
+    int indexFlat = id.x + id.y * CellsDimension.x;
+    
+    // ScreenParticle p = Particles[index];
+    // p.ClipPosition.x += 0.1;
+    // Particles[index] = p;
 }
