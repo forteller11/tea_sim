@@ -11,12 +11,18 @@ public class CreateLiquid : MonoBehaviour
     public GameObject Parent;
     public List<MeshRenderer> Renderers = new();
     private ScreenCell [] _screenCells;
-    public int2 Resolution = new int2(32,32);
+    public int2 ScreenResolution = new int2(32,32);
     private ScreenParticle [] _particles;
+    private Texture2D _texture;
+    [SerializeField] Material _material;
+    private Color[] _colors;
+    
     void Start()
     {
         _particles = new ScreenParticle[Renderers.Count];
-        _screenCells = new ScreenCell[Resolution.x * Resolution.y];
+        _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
+        _texture = new Texture2D(ScreenResolution.x, ScreenResolution.y, TextureFormat.RGBA32, false, true);
+        _colors = new Color[_texture.width * _texture.height];
     }
 
     void Update()
@@ -54,17 +60,18 @@ public class CreateLiquid : MonoBehaviour
         }
         #endregion
         
-        for (int i = 0; i < Resolution.x; i++)
-        for (int j = 0; j < Resolution.y; j++)
+        #region cell-based stuff
+        for (int i = 0; i < ScreenResolution.x; i++)
+        for (int j = 0; j < ScreenResolution.y; j++)
         {
-            int index = i + j * Resolution.x;
+            int index = i + j * ScreenResolution.x;
             var cell = _screenCells[index];
             cell.Alpha = 0;
             cell.NearestNormal = float3.zero;
             cell.NearestParticle = Single.PositiveInfinity;
             cell.FarthestParticle = Single.NegativeInfinity;
 
-            float2 cellScreenPos = new float2((float) i / Resolution.x, (float) j / Resolution.y);
+            float2 cellScreenPos = new float2((float) i / ScreenResolution.x, (float) j / ScreenResolution.y);
             foreach (var part in _particles)
             {
                 //todo make this the distance to the sphere at screen... not just the center
@@ -82,22 +89,32 @@ public class CreateLiquid : MonoBehaviour
                     cell.FarthestParticle = math.max(cell.FarthestParticle, distance);
                 }
             }
-
+            
+            var color = new Color(cell.NearestNormal.x, cell.NearestNormal.y, cell.NearestNormal.z, cell.Alpha);
+            _colors[index] = color;
             _screenCells[index] = cell;
         }
+        _texture.SetPixels(_colors);
+        _texture.Apply();
+        #endregion
+
+        #region apply tex
+        _material.mainTexture = _texture;
+        #endregion
     }
 
     private void OnDrawGizmos()
     {
+        return;
         Gizmos.color = Color.red;
 
         float cellSize = 1;
         float cellHalfSize = cellSize *.75f;
         if (_screenCells != null)
-            for (int i = 0; i < Resolution.x; i++)
-            for (int j = 0; j < Resolution.y; j++)
+            for (int i = 0; i < ScreenResolution.x; i++)
+            for (int j = 0; j < ScreenResolution.y; j++)
             {
-                int index = i + j * Resolution.x;
+                int index = i + j * ScreenResolution.x;
                 var cell = _screenCells[index];
                 var pos = new Vector3(i, j, 0);
 
