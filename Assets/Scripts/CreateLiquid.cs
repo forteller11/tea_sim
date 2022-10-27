@@ -48,6 +48,8 @@ public class CreateLiquid : MonoBehaviour
             _particleHandle = Shader.PropertyToID("ScreenParticles");
             _screenCellsHandle = Shader.PropertyToID("ScreenCells");
             _renderHandle = Shader.PropertyToID("Output");
+            _material.mainTexture = _renderTexture;
+
 
     }
 
@@ -128,10 +130,11 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.SetBuffer(_kernalHandle, _particleHandle, _particlesBuffer);
         ComputeShader.SetBuffer(_kernalHandle, _screenCellsHandle, _screenCellsBuffer);
         ComputeShader.SetTexture(_kernalHandle, _renderHandle, _renderTexture);
+        int threadSize = 8;
+        ComputeShader.Dispatch(_kernalHandle, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
         #endregion
 
         #region apply texture
-        _material.mainTexture = _texture;
         #endregion
     }
 

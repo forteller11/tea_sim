@@ -9,14 +9,11 @@ StructuredBuffer<ScreenCell> ScreenCells;
 RWTexture2D<float4> Output;
 // Texture2D<float4> ScreenGrab;
 
-[numthreads(1,1,1)]
+[numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
     int index = id.x;
-    int index2D = id.xy;
+    float2 index2D = id.xy;
     int indexFlat = id.x + id.y * CellsDimension.x;
-    
-    // ScreenParticle p = Particles[index];
-    // p.ClipPosition.x += 0.1;
-    // Particles[index] = p;
+    Output[index2D] = id.xyzx;
 }
