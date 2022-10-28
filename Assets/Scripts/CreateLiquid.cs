@@ -83,43 +83,43 @@ public class CreateLiquid : MonoBehaviour
         }
         #endregion
         
-        #region cell-based stuff
-        for (int i = 0; i < ScreenResolution.x; i++)
-        for (int j = 0; j < ScreenResolution.y; j++)
-        {
-            int index = i + j * ScreenResolution.x;
-            var cell = _screenCells[index];
-            cell.Alpha = 0;
-            cell.NearestNormal = float3.zero;
-            cell.NearestParticle = Single.PositiveInfinity;
-            cell.FarthestParticle = Single.NegativeInfinity;
-
-            float2 cellScreenPos = new float2((float) i / ScreenResolution.x, (float) j / ScreenResolution.y);
-            foreach (var part in _particles)
-            {
-                //todo make this the distance to the sphere at screen... not just the center
-                float screenDist = math.distance(cellScreenPos, part.ClipPosition.xy);
-                if (screenDist < part.Radius)
-                {
-                    float distance = part.CameraDepth;
-                    cell.Alpha = math.lerp(cell.Alpha, 1, 0.5f);
-                    if (distance < cell.NearestParticle)
-                    {
-                        cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
-                    }
-
-                    cell.NearestParticle = math.min(cell.NearestParticle, distance);
-                    cell.FarthestParticle = math.max(cell.FarthestParticle, distance);
-                }
-            }
-            
-            var color = new Color(cell.NearestNormal.x, cell.NearestNormal.y, cell.NearestNormal.z, cell.Alpha);
-            _colors[index] = color;
-            _screenCells[index] = cell;
-        }
-        _texture.SetPixels(_colors);
-        _texture.Apply();
-        #endregion
+        // #region cell-based stuff
+        // for (int i = 0; i < ScreenResolution.x; i++)
+        // for (int j = 0; j < ScreenResolution.y; j++)
+        // {
+        //     int index = i + j * ScreenResolution.x;
+        //     var cell = _screenCells[index];
+        //     cell.Alpha = 0;
+        //     cell.NearestNormal = float3.zero;
+        //     cell.NearestParticle = Single.PositiveInfinity;
+        //     cell.FarthestParticle = Single.NegativeInfinity;
+        //
+        //     float2 cellScreenPos = new float2((float) i / ScreenResolution.x, (float) j / ScreenResolution.y);
+        //     foreach (var part in _particles)
+        //     {
+        //         //todo make this the distance to the sphere at screen... not just the center
+        //         float screenDist = math.distance(cellScreenPos, part.ClipPosition.xy);
+        //         if (screenDist < part.Radius)
+        //         {
+        //             float distance = part.CameraDepth;
+        //             cell.Alpha = math.lerp(cell.Alpha, 1, 0.5f);
+        //             if (distance < cell.NearestParticle)
+        //             {
+        //                 cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
+        //             }
+        //
+        //             cell.NearestParticle = math.min(cell.NearestParticle, distance);
+        //             cell.FarthestParticle = math.max(cell.FarthestParticle, distance);
+        //         }
+        //     }
+        //     
+        //     var color = new Color(cell.NearestNormal.x, cell.NearestNormal.y, cell.NearestNormal.z, cell.Alpha);
+        //     _colors[index] = color;
+        //     _screenCells[index] = cell;
+        // }
+        // _texture.SetPixels(_colors);
+        // _texture.Apply();
+        // #endregion
         
         #region compute
         _particlesBuffer.SetData(_particles);
@@ -132,6 +132,7 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.SetTexture(_kernalHandle, _renderHandle, _renderTexture);
         int threadSize = 8;
         ComputeShader.Dispatch(_kernalHandle, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
+        _screenCellsBuffer.GetData(_screenCells);
         #endregion
 
         #region apply texture
@@ -140,7 +141,6 @@ public class CreateLiquid : MonoBehaviour
 
     private void OnDrawGizmos()
     {
-        return;
         Gizmos.color = Color.red;
 
         float cellSize = 1;
