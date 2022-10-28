@@ -3,9 +3,11 @@
 #include "Assets/Scripts/CreateLiquid.cs.hlsl"
 
 float ParticlesLength;
-float4 CellsDimension;
 StructuredBuffer<ScreenParticle> ScreenParticles;
-StructuredBuffer<ScreenCell> ScreenCells;
+
+float4 CellsDimension;
+RWStructuredBuffer<ScreenCell> ScreenCells;
+
 RWTexture2D<float4> Output;
 // Texture2D<float4> ScreenGrab;
 
@@ -16,4 +18,35 @@ void main (uint3 id : SV_DispatchThreadID)
     float2 index2D = id.xy;
     int indexFlat = id.x + id.y * CellsDimension.x;
     Output[index2D] = id.xyzx;
+    
+    ScreenCell cell = ScreenCells[indexFlat];
+    cell.Alpha = 0;
+    cell.NearestNormal = float3(0,0,0);
+    cell.NearestParticle = 1000000;
+    cell.FarthestParticle = -1000000;
+
+    float2 cellScreenPos = float2((float) id.x / CellsDimension.x, (float) id.y / CellsDimension.y);
+    for (int k = 0; k < ParticlesLength; k++)
+    {
+        ScreenParticle part = ScreenParticles[k];
+        //todo make this the distance to the sphere at screen... not just the center
+        float screenDist = distance(cellScreenPos, part.ClipPosition.xy);
+        if (screenDist < part.Radius)
+        {
+            float distance = part.CameraDepth;
+            cell.Alpha = lerp(cell.Alpha, 1, 0.5f);
+            if (distance < cell.NearestParticle)
+            {
+                cell.NearestNormal = float3(0,0,1);
+                //todo make get screen normal function again
+                // cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
+            }
+
+            cell.NearestParticle = min(cell.NearestParticle, distance);
+            cell.FarthestParticle = max(cell.FarthestParticle, distance);
+        }
+    }
+    
+    ScreenCells[indexFlat] = cell;
+     
 }
