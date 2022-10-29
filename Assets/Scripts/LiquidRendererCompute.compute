@@ -26,6 +26,13 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
     return normalize(normal);
 }
 
+void blendCells(inout ScreenCell cell, in ScreenCell other, float blendAmount)
+{
+    //todo this breaks normal... stop this
+    cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, blendAmount);
+    cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
+}
+
 [numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
@@ -52,8 +59,6 @@ void main (uint3 id : SV_DispatchThreadID)
             cell.Alpha = lerp(cell.Alpha, 1, 0.5f);
             if (distance < cell.NearestParticle)
             {
-                cell.NearestNormal = float3(0,0,1);
-                //todo make get screen normal function again
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
             }
 
@@ -61,6 +66,16 @@ void main (uint3 id : SV_DispatchThreadID)
             cell.FarthestParticle = max(cell.FarthestParticle, distance);
         }
     }
+    //BLUR ------------------
+    int horizontalIncrement = 1;
+    int verticalIncrement = CellsDimension.x;
+
+    float blendAmount = 0.3;
+    blendCells(cell, ScreenCells[indexFlat + horizontalIncrement + horizontalIncrement], blendAmount);
+    blendCells(cell, ScreenCells[indexFlat - horizontalIncrement - horizontalIncrement], blendAmount);
+    blendCells(cell, ScreenCells[indexFlat + verticalIncrement + verticalIncrement], blendAmount);
+    blendCells(cell, ScreenCells[indexFlat - verticalIncrement - verticalIncrement], blendAmount);
+    //BLUR ---------------
     
     ScreenCells[indexFlat] = cell;
     Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);

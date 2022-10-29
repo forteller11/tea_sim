@@ -178,6 +178,7 @@ public class CreateLiquidInspector : Editor
 
         if (GUILayout.Button("yo"))
         {
+            t.Renderers = new List<MeshRenderer>();
             var renderers = t.Parent.GetComponentsInChildren<MeshRenderer>();
             t.Renderers.AddRange(renderers);
         }
