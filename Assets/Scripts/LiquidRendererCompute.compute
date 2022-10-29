@@ -85,7 +85,18 @@ void main (uint3 id : SV_DispatchThreadID)
     //render
     ScreenCells[indexFlat] = cell;
     Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);
-    // Output[index2D] = ScreenGrab[index2DGrab];
+    float refractionAmount = 10;
+    float2 refractedUV = cell.NearestNormal.xy * refractionAmount + index2DGrab;
+
+    float4 blueTint = float4 (.4,.8,1,1);
+    float4 blueConstant = float4 (.4,.8,1,1);
+    float4 screenGrab = ScreenGrab[index2DGrab];
+    float4 refractedPixel = ScreenGrab[refractedUV];
+
+    float4 refractedAndTinted = blueTint * refractedPixel;
+    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.6);
+    
+    Output[index2D] = float4(refractedAndTintedAndConstant.xyz, cell.Alpha);
     //render
 }
 
