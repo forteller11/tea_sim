@@ -83,12 +83,9 @@ void main (uint3 id : SV_DispatchThreadID)
     //BLUR ---------------
 
     //render
-
-
-    //render
-    
     ScreenCells[indexFlat] = cell;
     Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);
-    Output[index2D] = ScreenGrab[index2DGrab];
+    // Output[index2D] = ScreenGrab[index2DGrab];
+    //render
 }
 
