@@ -16,7 +16,8 @@ public class CreateLiquid : MonoBehaviour
     public int2 ScreenResolution = new int2(32,32);
     private ScreenParticle [] _particles;
     private Texture2D _texture;
-    [SerializeField] Material _material;
+    [SerializeField] MeshRenderer _liquidRenderer;
+    [SerializeField] MeshRenderer _screenGrabRenderer;
     private Color[] _colors;
 
     public ComputeShader ComputeShader;
@@ -52,7 +53,9 @@ public class CreateLiquid : MonoBehaviour
             _particleHandle = Shader.PropertyToID("ScreenParticles");
             _screenCellsHandle = Shader.PropertyToID("ScreenCells");
             _renderHandle = Shader.PropertyToID("Output");
-            _material.mainTexture = _renderTexture;
+            _liquidRenderer.material.mainTexture = _renderTexture;
+            _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
+
 
 
     }
@@ -81,11 +84,14 @@ public class CreateLiquid : MonoBehaviour
             var part = new ScreenParticle();
             part.ClipPosition = correctedClipPos.xy;
             //todo nearclip somehow effects radius and it shouldnt....
+            //todo fov changes dont effect radius like it should.
             part.Radius = (1/(clipPos.z))*0.5f;
             part.CameraDepth = clipPos.z ;
             _particles[i] = part;
         }
         #endregion
+        
+
         
         // #region cell-based stuff
         // for (int i = 0; i < ScreenResolution.x; i++)

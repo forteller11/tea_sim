@@ -29,8 +29,8 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 void blendCells(inout ScreenCell cell, in ScreenCell other, float blendAmount)
 {
     //todo this breaks normal... stop this
-    cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, blendAmount);
-    cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
+    // cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, blendAmount);
+    // cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
 }
 
 [numthreads(8,8,1)]
@@ -56,7 +56,7 @@ void main (uint3 id : SV_DispatchThreadID)
         if (screenDist < part.Radius)
         {
             float distance = part.CameraDepth;
-            cell.Alpha = lerp(cell.Alpha, 1, 0.5f);
+            cell.Alpha = lerp(cell.Alpha, 1, 0.2f);
             if (distance < cell.NearestParticle)
             {
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
