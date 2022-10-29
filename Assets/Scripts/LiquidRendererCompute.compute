@@ -23,7 +23,7 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 
     //todo we need to acos interp it I think not just a lerp it to be correct for spheres
     float3 normal = lerp(ortho, tangent, distFromCenterNorm);
-    return normal;
+    return normalize(normal);
 }
 
 [numthreads(8,8,1)]
@@ -63,6 +63,6 @@ void main (uint3 id : SV_DispatchThreadID)
     }
     
     ScreenCells[indexFlat] = cell;
-     
+    Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);
 }
 

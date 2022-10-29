@@ -10,7 +10,7 @@ using UnityEngine.Rendering;
 
 public class CreateLiquid : MonoBehaviour
 {
-    public GameObject Parent;
+    
     public List<MeshRenderer> Renderers = new();
     private ScreenCell [] _screenCells;
     public int2 ScreenResolution = new int2(32,32);
@@ -19,10 +19,14 @@ public class CreateLiquid : MonoBehaviour
     [SerializeField] Material _material;
     private Color[] _colors;
 
-    [Header("Compute")] public ComputeShader ComputeShader;
+    public ComputeShader ComputeShader;
     public ComputeBuffer _particlesBuffer;
     private ComputeBuffer _screenCellsBuffer;
     private RenderTexture _renderTexture;
+    
+    [Header("Debug")]
+    public bool DebugDraw;
+    public GameObject Parent;
 
     private int _kernalHandle = -1;
     private int _particleHandle = -1;
@@ -141,6 +145,9 @@ public class CreateLiquid : MonoBehaviour
 
     private void OnDrawGizmos()
     {
+        if (!DebugDraw)
+            return;
+        
         Gizmos.color = Color.red;
 
         float cellSize = 1;
