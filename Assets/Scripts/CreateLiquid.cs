@@ -33,6 +33,7 @@ public class CreateLiquid : MonoBehaviour
     private int _particleHandle = -1;
     private int _screenCellsHandle = -1;
     private int _renderHandle = -1;
+    private int _screenGrabHandle = -1;
     void Start()
     {
    
@@ -53,6 +54,7 @@ public class CreateLiquid : MonoBehaviour
             _particleHandle = Shader.PropertyToID("ScreenParticles");
             _screenCellsHandle = Shader.PropertyToID("ScreenCells");
             _renderHandle = Shader.PropertyToID("Output");
+            _screenGrabHandle = Shader.PropertyToID("ScreenGrab");
             _liquidRenderer.material.mainTexture = _renderTexture;
             _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
 
@@ -90,56 +92,19 @@ public class CreateLiquid : MonoBehaviour
             _particles[i] = part;
         }
         #endregion
-        
 
-        
-        // #region cell-based stuff
-        // for (int i = 0; i < ScreenResolution.x; i++)
-        // for (int j = 0; j < ScreenResolution.y; j++)
-        // {
-        //     int index = i + j * ScreenResolution.x;
-        //     var cell = _screenCells[index];
-        //     cell.Alpha = 0;
-        //     cell.NearestNormal = float3.zero;
-        //     cell.NearestParticle = Single.PositiveInfinity;
-        //     cell.FarthestParticle = Single.NegativeInfinity;
-        //
-        //     float2 cellScreenPos = new float2((float) i / ScreenResolution.x, (float) j / ScreenResolution.y);
-        //     foreach (var part in _particles)
-        //     {
-        //         //todo make this the distance to the sphere at screen... not just the center
-        //         float screenDist = math.distance(cellScreenPos, part.ClipPosition.xy);
-        //         if (screenDist < part.Radius)
-        //         {
-        //             float distance = part.CameraDepth;
-        //             cell.Alpha = math.lerp(cell.Alpha, 1, 0.5f);
-        //             if (distance < cell.NearestParticle)
-        //             {
-        //                 cell.NearestNormal = part.GetScreenNormal(cellScreenPos);
-        //             }
-        //
-        //             cell.NearestParticle = math.min(cell.NearestParticle, distance);
-        //             cell.FarthestParticle = math.max(cell.FarthestParticle, distance);
-        //         }
-        //     }
-        //     
-        //     var color = new Color(cell.NearestNormal.x, cell.NearestNormal.y, cell.NearestNormal.z, cell.Alpha);
-        //     _colors[index] = color;
-        //     _screenCells[index] = cell;
-        // }
-        // _texture.SetPixels(_colors);
-        // _texture.Apply();
-        // #endregion
-        
         #region compute
         _particlesBuffer.SetData(_particles);
         _screenCellsBuffer.SetData(_screenCells);
-        
+
+        var targetTexture = Camera.main.targetTexture;
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
+        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
         ComputeShader.SetBuffer(_kernalHandle, _particleHandle, _particlesBuffer);
         ComputeShader.SetBuffer(_kernalHandle, _screenCellsHandle, _screenCellsBuffer);
         ComputeShader.SetTexture(_kernalHandle, _renderHandle, _renderTexture);
+        ComputeShader.SetTexture(_kernalHandle, _screenGrabHandle, Camera.main.targetTexture);
         int threadSize = 8;
         ComputeShader.Dispatch(_kernalHandle, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
         _screenCellsBuffer.GetData(_screenCells);

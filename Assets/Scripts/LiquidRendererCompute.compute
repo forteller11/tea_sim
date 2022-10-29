@@ -7,9 +7,12 @@ StructuredBuffer<ScreenParticle> ScreenParticles;
 
 float4 CellsDimension;
 RWStructuredBuffer<ScreenCell> ScreenCells;
+RWStructuredBuffer<ScreenCell> ScreenCellsBlurred;
 
+float4 ScreenGrabDimensions;
+Texture2D<float4> ScreenGrab;
 RWTexture2D<float4> Output;
-// Texture2D<float4> ScreenGrab;
+
 
 float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 {
@@ -29,7 +32,7 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 void blendCells(inout ScreenCell cell, in ScreenCell other, float blendAmount)
 {
     //todo this breaks normal... stop this
-    // cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, blendAmount);
+    // cell.NearestNormal = normalize(lerp(cell.NearestNormal, other.NearestNormal, blendAmount));
     // cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
 }
 
@@ -38,12 +41,14 @@ void main (uint3 id : SV_DispatchThreadID)
 {
     int index = id.x;
     float2 index2D = id.xy;
+    float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
+    float2 index2DGrab = id.xy * scaleAmount;
     int indexFlat = id.x + id.y * CellsDimension.x;
     Output[index2D] = id.xyzx;
     
     ScreenCell cell = ScreenCells[indexFlat];
     cell.Alpha = 0;
-    cell.NearestNormal = float3(0,0,0);
+    cell.NearestNormal = float3(0,0,-1);
     cell.NearestParticle = 1000000;
     cell.FarthestParticle = -1000000;
 
@@ -76,8 +81,14 @@ void main (uint3 id : SV_DispatchThreadID)
     blendCells(cell, ScreenCells[indexFlat + verticalIncrement + verticalIncrement], blendAmount);
     blendCells(cell, ScreenCells[indexFlat - verticalIncrement - verticalIncrement], blendAmount);
     //BLUR ---------------
+
+    //render
+
+
+    //render
     
     ScreenCells[indexFlat] = cell;
     Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);
+    Output[index2D] = ScreenGrab[index2DGrab];
 }
 

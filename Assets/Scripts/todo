@@ -1,6 +1,6 @@
-rendering over main cam
+[x] rendering over main cam
+[x] screen grab
 need to set data?
-screen grab
 shader work
 
 double buffer for low rez blur but then high res final pass!
