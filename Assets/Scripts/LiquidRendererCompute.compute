@@ -1,5 +1,6 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel main
+#pragma kernel main2
 #include "Assets/Scripts/CreateLiquid.cs.hlsl"
 
 float ParticlesLength;
@@ -13,7 +14,7 @@ float4 ScreenGrabDimensions;
 Texture2D<float4> ScreenGrab;
 RWTexture2D<float4> Output;
 
-
+//todo make world normal
 float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 {
     float distFromCenter = distance(screenParticle.ClipPosition, clipPoint);
@@ -29,22 +30,10 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
     return normalize(normal);
 }
 
-void blendCells(inout ScreenCell cell, in ScreenCell other, float blendAmount)
-{
-    //todo this breaks normal... stop this
-    // cell.NearestNormal = normalize(lerp(cell.NearestNormal, other.NearestNormal, blendAmount));
-    // cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
-}
-
 [numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
-    int index = id.x;
-    float2 index2D = id.xy;
-    float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
-    float2 index2DGrab = id.xy * scaleAmount;
     int indexFlat = id.x + id.y * CellsDimension.x;
-    Output[index2D] = id.xyzx;
     
     ScreenCell cell = ScreenCells[indexFlat];
     cell.Alpha = 0;
@@ -61,7 +50,7 @@ void main (uint3 id : SV_DispatchThreadID)
         if (screenDist < part.Radius)
         {
             float distance = part.CameraDepth;
-            cell.Alpha = lerp(cell.Alpha, 1, 0.2f);
+            cell.Alpha = lerp(cell.Alpha, 1, 0.1f);
             if (distance < cell.NearestParticle)
             {
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
@@ -71,11 +60,33 @@ void main (uint3 id : SV_DispatchThreadID)
             cell.FarthestParticle = max(cell.FarthestParticle, distance);
         }
     }
-    //BLUR ------------------
-    int horizontalIncrement = 1;
-    int verticalIncrement = CellsDimension.x;
 
-    float blendAmount = 0.3;
+    ScreenCells[indexFlat] = cell;
+}
+
+void blendCells(inout ScreenCell cell, in ScreenCell other, float blendAmount)
+{
+    //todo this breaks normal... stop this
+    cell.NearestNormal = normalize(lerp(cell.NearestNormal, other.NearestNormal, blendAmount));
+    cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
+}
+
+//todo go based on output texture
+[numthreads(8,8,1)]
+void main2 (uint3 id : SV_DispatchThreadID)
+{
+    float2 index2D = id.xy;
+    float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
+    float2 index2DGrab = id.xy * scaleAmount;
+    int indexFlat = id.x + id.y * CellsDimension.x;
+    Output[index2D] = id.xyzx;
+    
+    ScreenCell cell = ScreenCells[indexFlat];
+    //BLUR ------------------
+    int horizontalIncrement = 2;
+    int verticalIncrement = CellsDimension.x*2;
+
+    float blendAmount = 0.6;
     blendCells(cell, ScreenCells[indexFlat + horizontalIncrement + horizontalIncrement], blendAmount);
     blendCells(cell, ScreenCells[indexFlat - horizontalIncrement - horizontalIncrement], blendAmount);
     blendCells(cell, ScreenCells[indexFlat + verticalIncrement + verticalIncrement], blendAmount);
@@ -83,20 +94,31 @@ void main (uint3 id : SV_DispatchThreadID)
     //BLUR ---------------
 
     //render
-    ScreenCells[indexFlat] = cell;
     Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);
-    float refractionAmount = 10;
-    float2 refractedUV = cell.NearestNormal.xy * refractionAmount + index2DGrab;
+    float refractionAmount = 70;
+    float2 refractedUV = cell.NearestNormal.xy * refractionAmount * cell.Alpha + index2DGrab;
 
     float4 blueTint = float4 (.4,.8,1,1);
-    float4 blueConstant = float4 (.4,.8,1,1);
+    float4 blueConstant = float4 (.4,.5,1,1);
     float4 screenGrab = ScreenGrab[index2DGrab];
     float4 refractedPixel = ScreenGrab[refractedUV];
 
     float4 refractedAndTinted = blueTint * refractedPixel;
-    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.6);
+    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.2);
     
-    Output[index2D] = float4(refractedAndTintedAndConstant.xyz, cell.Alpha);
+    if (cell.Alpha >  0.2)
+    {
+        Output[index2D] = float4(refractedAndTintedAndConstant.xyz, cell.Alpha);
+    }
+    else
+    {
+        Output[index2D] = float4(0,0,0,0);
+    }
+    // Output[index2D] = float4(cell.NearestNormal, 1);
+
+    // reflect()
     //render
 }
 
+//use circles for uv map...
+//then before final rendering... use uv offset for entire render with full resolution.....

@@ -29,11 +29,12 @@ public class CreateLiquid : MonoBehaviour
     public bool DebugDraw;
     public GameObject Parent;
 
-    private int _kernalHandle = -1;
+    private int _main1Compute = -1;
+    private int _main2Compute = -1;
     private int _particleHandle = -1;
     private int _screenCellsHandle = -1;
-    private int _renderHandle = -1;
-    private int _screenGrabHandle = -1;
+    private int _outputTextureHandle = -1;
+    private int _screenGrabTextureHandle = -1;
     void Start()
     {
    
@@ -50,16 +51,14 @@ public class CreateLiquid : MonoBehaviour
 
             _renderTexture = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
             _renderTexture.enableRandomWrite = true;
-            _kernalHandle = ComputeShader.FindKernel("main");
+            _main1Compute = ComputeShader.FindKernel("main");
+            _main2Compute = ComputeShader.FindKernel("main2");
             _particleHandle = Shader.PropertyToID("ScreenParticles");
             _screenCellsHandle = Shader.PropertyToID("ScreenCells");
-            _renderHandle = Shader.PropertyToID("Output");
-            _screenGrabHandle = Shader.PropertyToID("ScreenGrab");
+            _outputTextureHandle = Shader.PropertyToID("Output");
+            _screenGrabTextureHandle = Shader.PropertyToID("ScreenGrab");
             _liquidRenderer.material.mainTexture = _renderTexture;
             _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
-
-
-
     }
 
     void Update()
@@ -94,24 +93,29 @@ public class CreateLiquid : MonoBehaviour
         #endregion
 
         #region compute
+        var targetTexture = Camera.main.targetTexture;
+        int threadSize = 8;
         _particlesBuffer.SetData(_particles);
         _screenCellsBuffer.SetData(_screenCells);
 
-        var targetTexture = Camera.main.targetTexture;
+        //particles to screen
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
         ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
-        ComputeShader.SetBuffer(_kernalHandle, _particleHandle, _particlesBuffer);
-        ComputeShader.SetBuffer(_kernalHandle, _screenCellsHandle, _screenCellsBuffer);
-        ComputeShader.SetTexture(_kernalHandle, _renderHandle, _renderTexture);
-        ComputeShader.SetTexture(_kernalHandle, _screenGrabHandle, Camera.main.targetTexture);
-        int threadSize = 8;
-        ComputeShader.Dispatch(_kernalHandle, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
-        _screenCellsBuffer.GetData(_screenCells);
+        ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
+        ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
+        ComputeShader.Dispatch(_main1Compute, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
+        
+        //blur and write to output
+        ComputeShader.SetFloat("ParticlesLength", _particles.Length);
+        ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
+        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
+        ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
+        ComputeShader.SetTexture(_main2Compute, _outputTextureHandle, _renderTexture);
+        ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, targetTexture);
+        ComputeShader.Dispatch(_main2Compute, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
         #endregion
-
-        #region apply texture
-        #endregion
+        
     }
 
     private void OnDrawGizmos()

@@ -3,6 +3,19 @@
 need to set data?
 depth tracking / nearest farther... for occlusion but also shading
 shader work
+
+do gloss
+- track pos
+- shader work
+- do diffuse?
+
+blend stuff more     
+
 track normal with only xy
 
 double buffer for low rez blur but then high res final pass!
+
+blur with multiple dispatch...
+
+world normal
+gloss
