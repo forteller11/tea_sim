@@ -65,13 +65,19 @@ void main (uint3 id : SV_DispatchThreadID)
 }
 
 //remember to renormalized at the end!
-void addTogether(inout ScreenCell cell, in ScreenCell other, float addedWeight)
+void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
 {
     //todo this breaks normal... stop this
     cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, addedWeight);
     cell.Alpha += other.Alpha * addedWeight;
 }
 
+//this isn't technically a box blur because the kernal is not currently shaped like a box... it has 8 pixels missing
+//[x][ ][x][ ][x]
+//[ ][x][x][x][ ]
+//[x][x][x][x][x]
+//[ ][x][x][x][ ]
+//[x][ ][x][ ][x]
 ScreenCell boxBlur(int2 index)
 {
     int indexFlat = index.x + index.y * CellsDimension.x;
@@ -84,22 +90,37 @@ ScreenCell boxBlur(int2 index)
     cell.FarthestParticle = 0;
     cell.NearestParticle = 0;
     
-    float selfWeight = 0.24;
-    float ajacentWeight = 0.1;
-    float diagonalWeight = 0.08;
+    float selfWeight = 0.16;
+    float manhatten1Weight = 0.06;
+    float manhatten2Weight = 0.05; //58
+    float diagonalWeight1 = 0.05; // 74
+    float diagonalWeight2 = 0.05;
     
-    addTogether(cell, ScreenCells[indexFlat], selfWeight);
-    //manhatten
-    addTogether(cell, ScreenCells[indexFlat + horizontalIncrement], ajacentWeight);
-    addTogether(cell, ScreenCells[indexFlat - horizontalIncrement], ajacentWeight);
-    addTogether(cell, ScreenCells[indexFlat + verticalIncrement], ajacentWeight);
-    addTogether(cell, ScreenCells[indexFlat - verticalIncrement], ajacentWeight);
+    weightedAdd(cell, ScreenCells[indexFlat], selfWeight);
+    
+    //manhatten nearest
+    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement], manhatten1Weight);
+    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement], manhatten1Weight);
+    weightedAdd(cell, ScreenCells[indexFlat + verticalIncrement], manhatten1Weight);
+    weightedAdd(cell, ScreenCells[indexFlat - verticalIncrement], manhatten1Weight);
 
-    //diagonal
-    addTogether(cell, ScreenCells[indexFlat + horizontalIncrement + verticalIncrement], diagonalWeight);
-    addTogether(cell, ScreenCells[indexFlat - horizontalIncrement + verticalIncrement], diagonalWeight);
-    addTogether(cell, ScreenCells[indexFlat + horizontalIncrement - verticalIncrement], diagonalWeight);
-    addTogether(cell, ScreenCells[indexFlat - horizontalIncrement - verticalIncrement], diagonalWeight);
+    //diagonal nearest
+    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement + verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement + verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement - verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement - verticalIncrement], diagonalWeight1);
+
+    //manhatten non nearest
+    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, ScreenCells[indexFlat + verticalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, ScreenCells[indexFlat - verticalIncrement * 2], manhatten2Weight);
+
+    //diagonal non nearest
+    weightedAdd(cell, ScreenCells[indexFlat + (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, ScreenCells[indexFlat - (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, ScreenCells[indexFlat + (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, ScreenCells[indexFlat - (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
 
     cell.NearestNormal = normalize(cell.NearestNormal);
     return cell;
@@ -120,11 +141,11 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float2 refractedUV = cell.NearestNormal.xy * refractionAmount * cell.Alpha + index2DGrab;
 
     float4 blueTint = float4 (.4,.8,1,1);
-    float4 blueConstant = float4 (.4,.5,1,1);
+    float4 blueConstant = float4 (.3,.3,1,1);
     float4 refractedPixel = ScreenGrab[refractedUV];
 
     float4 refractedAndTinted = blueTint * refractedPixel;
-    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.2);
+    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.5);
     
     if (cell.Alpha >  0.2)
     {
@@ -134,10 +155,8 @@ void main2 (uint3 id : SV_DispatchThreadID)
     {
         Output[index2D] = float4(0,0,0,0);
     }
-    // Output[index2D] = float4(cell.NearestNormal, 1);
 
-    // reflect()
-    //render
+    // Output[index2D] = float4(cell.NearestNormal.xyz, 1);
 }
 
 //use circles for uv map...

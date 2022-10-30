@@ -6,9 +6,13 @@ shader work
 
 do gloss
 - track pos
+- normal in world space
+- track camera pos
+- specular lighting!
 - shader work
 - do diffuse?
 
+- resample at full res
 blend stuff more     
 
 track normal with only xy
