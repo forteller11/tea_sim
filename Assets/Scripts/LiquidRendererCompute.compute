@@ -64,11 +64,45 @@ void main (uint3 id : SV_DispatchThreadID)
     ScreenCells[indexFlat] = cell;
 }
 
-void blendCells(inout ScreenCell cell, in ScreenCell other, float blendAmount)
+//remember to renormalized at the end!
+void addTogether(inout ScreenCell cell, in ScreenCell other, float addedWeight)
 {
     //todo this breaks normal... stop this
-    cell.NearestNormal = normalize(lerp(cell.NearestNormal, other.NearestNormal, blendAmount));
-    cell.Alpha = lerp(cell.Alpha, other.Alpha, blendAmount);
+    cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, addedWeight);
+    cell.Alpha += other.Alpha * addedWeight;
+}
+
+ScreenCell boxBlur(int2 index)
+{
+    int indexFlat = index.x + index.y * CellsDimension.x;
+    int horizontalIncrement = 1;
+    int verticalIncrement = CellsDimension.x;
+
+    ScreenCell cell;
+    cell.Alpha = 0;
+    cell.NearestNormal = float3(0,0,0);
+    cell.FarthestParticle = 0;
+    cell.NearestParticle = 0;
+    
+    float selfWeight = 0.24;
+    float ajacentWeight = 0.1;
+    float diagonalWeight = 0.08;
+    
+    addTogether(cell, ScreenCells[indexFlat], selfWeight);
+    //manhatten
+    addTogether(cell, ScreenCells[indexFlat + horizontalIncrement], ajacentWeight);
+    addTogether(cell, ScreenCells[indexFlat - horizontalIncrement], ajacentWeight);
+    addTogether(cell, ScreenCells[indexFlat + verticalIncrement], ajacentWeight);
+    addTogether(cell, ScreenCells[indexFlat - verticalIncrement], ajacentWeight);
+
+    //diagonal
+    addTogether(cell, ScreenCells[indexFlat + horizontalIncrement + verticalIncrement], diagonalWeight);
+    addTogether(cell, ScreenCells[indexFlat - horizontalIncrement + verticalIncrement], diagonalWeight);
+    addTogether(cell, ScreenCells[indexFlat + horizontalIncrement - verticalIncrement], diagonalWeight);
+    addTogether(cell, ScreenCells[indexFlat - horizontalIncrement - verticalIncrement], diagonalWeight);
+
+    cell.NearestNormal = normalize(cell.NearestNormal);
+    return cell;
 }
 
 //todo go based on output texture
@@ -78,29 +112,15 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float2 index2D = id.xy;
     float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
     float2 index2DGrab = id.xy * scaleAmount;
-    int indexFlat = id.x + id.y * CellsDimension.x;
-    Output[index2D] = id.xyzx;
     
-    ScreenCell cell = ScreenCells[indexFlat];
-    //BLUR ------------------
-    int horizontalIncrement = 2;
-    int verticalIncrement = CellsDimension.x*2;
-
-    float blendAmount = 0.6;
-    blendCells(cell, ScreenCells[indexFlat + horizontalIncrement + horizontalIncrement], blendAmount);
-    blendCells(cell, ScreenCells[indexFlat - horizontalIncrement - horizontalIncrement], blendAmount);
-    blendCells(cell, ScreenCells[indexFlat + verticalIncrement + verticalIncrement], blendAmount);
-    blendCells(cell, ScreenCells[indexFlat - verticalIncrement - verticalIncrement], blendAmount);
-    //BLUR ---------------
+    ScreenCell cell = boxBlur(id.xy);
 
     //render
-    Output[index2D] = float4(cell.NearestNormal.xyz, cell.Alpha);
     float refractionAmount = 70;
     float2 refractedUV = cell.NearestNormal.xy * refractionAmount * cell.Alpha + index2DGrab;
 
     float4 blueTint = float4 (.4,.8,1,1);
     float4 blueConstant = float4 (.4,.5,1,1);
-    float4 screenGrab = ScreenGrab[index2DGrab];
     float4 refractedPixel = ScreenGrab[refractedUV];
 
     float4 refractedAndTinted = blueTint * refractedPixel;
