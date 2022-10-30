@@ -14,7 +14,9 @@ float4 ScreenGrabDimensions;
 Texture2D<float4> ScreenGrab;
 RWTexture2D<float4> Output;
 
-//todo make world normal
+float4 LightPosition = float4(5,0,0,20);
+
+//todo make world normal or get clip light
 float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 {
     float distFromCenter = distance(screenParticle.ClipPosition, clipPoint);
@@ -146,10 +148,19 @@ void main2 (uint3 id : SV_DispatchThreadID)
 
     float4 refractedAndTinted = blueTint * refractedPixel;
     float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.5);
+
+    float3 lightDir = normalize(LightPosition.xyz);
+    float3 reflectedRay = normalize(reflect(lightDir, cell.NearestNormal));
+    float amountReflectedNormal = max(dot(float3(0,0,-1), reflectedRay), 0.5);
+
+    float specular = amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal;
     
+    float3 color = lerp(refractedAndTintedAndConstant.xyz, float3(1,1,1), specular);
+    // Output[index2D] = float4(color,1);
+    // return;
     if (cell.Alpha >  0.2)
     {
-        Output[index2D] = float4(refractedAndTintedAndConstant.xyz, cell.Alpha);
+        Output[index2D] = float4(color, cell.Alpha);
     }
     else
     {

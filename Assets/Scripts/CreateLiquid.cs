@@ -18,6 +18,7 @@ public class CreateLiquid : MonoBehaviour
     private Texture2D _texture;
     [SerializeField] MeshRenderer _liquidRenderer;
     [SerializeField] MeshRenderer _screenGrabRenderer;
+    [SerializeField] Transform _pointLight;
     private Color[] _colors;
 
     public ComputeShader ComputeShader;
@@ -37,8 +38,7 @@ public class CreateLiquid : MonoBehaviour
     private int _screenGrabTextureHandle = -1;
     void Start()
     {
-   
-            _particles = new ScreenParticle[Renderers.Count];
+        _particles = new ScreenParticle[Renderers.Count];
             _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
             _texture = new Texture2D(ScreenResolution.x, ScreenResolution.y, TextureFormat.RGBA32, false, true);
             _colors = new Color[_texture.width * _texture.height];
@@ -72,6 +72,17 @@ public class CreateLiquid : MonoBehaviour
         float fovRads = math.radians(cam.fieldOfView);
         var projectMat = float4x4.PerspectiveFov(fovRads, aspectRatio, nearClip, farClip);
 
+        #region light
+        Vector3 lightPos = _pointLight.position;
+        float4 lightScreenPos;
+        var lightCamPos = worldToViewMat * new Vector4(lightPos.x, lightPos.y, lightPos.z, 1);
+        var lightClipPos = math.mul(projectMat, lightCamPos);
+        var correctedLightClipPos = lightClipPos.xy;
+        correctedLightClipPos /= lightClipPos.w;
+        correctedLightClipPos = (correctedLightClipPos + 1) / 2;
+        lightScreenPos = new float4(correctedLightClipPos.xyx, 0);
+        #endregion
+        
         for (var i = 0; i < _particles.Length; i++)
         {
             var go = Renderers[i].transform;
@@ -110,6 +121,7 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
         ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
+        ComputeShader.SetVector("LightPosition", lightScreenPos);
         ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
         ComputeShader.SetTexture(_main2Compute, _outputTextureHandle, _renderTexture);
         ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, targetTexture);
