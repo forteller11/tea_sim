@@ -8,10 +8,8 @@
 // PackingRules = Exact
 struct ScreenParticle
 {
-    float2 ClipPosition; // x: x y: y 
-    float CameraDepth;
+    float4 CameraPosition; // x: x y: y z: z w: w 
     float Radius;
-    float3 Normal; // x: x y: y z: z 
 };
 
 // Generated from ScreenCell
@@ -19,10 +17,8 @@ struct ScreenParticle
 struct ScreenCell
 {
     float Alpha;
-    float NearestParticle;
-    float FarthestParticle;
+    float3 NearestParticle; // x: x y: y z: z 
+    float3 FurthestParticle; // x: x y: y z: z 
     float3 NearestNormal; // x: x y: y z: z 
 };
-
-
 #endif

@@ -25,7 +25,14 @@ public class CreateLiquid : MonoBehaviour
     public ComputeBuffer _particlesBuffer;
     private ComputeBuffer _screenCellsBuffer;
     private RenderTexture _renderTexture;
-    
+
+    [Header("Compute Params")]
+    [Range(0,1)] public float AlphaAtCenter = .1f;
+    [Range(0,1)] public float AlphaAtEdge = .01f;
+    [Range(0,1)] public float AlphaThreshold = .25f;
+    [Space]
+    public Color BaseColor = new Color(0,0,1);
+    public Color BaseTint = new Color(.6f,.6f,1);
     [Header("Debug")]
     public bool DebugDraw;
     public GameObject Parent;
@@ -77,10 +84,7 @@ public class CreateLiquid : MonoBehaviour
         float4 lightScreenPos;
         var lightCamPos = worldToViewMat * new Vector4(lightPos.x, lightPos.y, lightPos.z, 1);
         var lightClipPos = math.mul(projectMat, lightCamPos);
-        var correctedLightClipPos = lightClipPos.xy;
-        correctedLightClipPos /= lightClipPos.w;
-        correctedLightClipPos = (correctedLightClipPos + 1) / 2;
-        lightScreenPos = new float4(correctedLightClipPos.xyx, 0);
+        lightScreenPos = new float4(lightClipPos);
         #endregion
         
         for (var i = 0; i < _particles.Length; i++)
@@ -89,16 +93,17 @@ public class CreateLiquid : MonoBehaviour
             var worldPos = go.position;
             var camPos = worldToViewMat * new Vector4(worldPos.x, worldPos.y, worldPos.z, 1);
             var clipPos = math.mul(projectMat, camPos);
-            var correctedClipPos = clipPos.xy;
+            var correctedClipPos = clipPos.xyz;
             correctedClipPos /= clipPos.w;
             correctedClipPos = (correctedClipPos + 1) / 2;
             
             var part = new ScreenParticle();
-            part.ClipPosition = correctedClipPos.xy;
+            part.CameraPosition = clipPos;
             //todo nearclip somehow effects radius and it shouldnt....
             //todo fov changes dont effect radius like it should.
             part.Radius = (1/(clipPos.z))*0.5f;
-            part.CameraDepth = clipPos.z ;
+            Debug.Log(clipPos);
+            // part.NearestPosition = correctedClipPos;
             _particles[i] = part;
         }
         #endregion
@@ -109,10 +114,16 @@ public class CreateLiquid : MonoBehaviour
         _particlesBuffer.SetData(_particles);
         _screenCellsBuffer.SetData(_screenCells);
 
-        //particles to screen
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
         ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
+        ComputeShader.SetFloat("AlphaAtCenter", AlphaAtCenter);
+        ComputeShader.SetFloat("AlphaAtEdge", AlphaAtEdge);
+        ComputeShader.SetFloat("AlphaThreshold", AlphaThreshold);
+        ComputeShader.SetVector("BaseColor", BaseColor);
+        ComputeShader.SetVector("BaseTint", BaseTint);
+        
+        //particles to screen
         ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
         ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
         ComputeShader.Dispatch(_main1Compute, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
@@ -163,7 +174,7 @@ public class CreateLiquidInspector : Editor
         base.OnInspectorGUI();
         var t = target as CreateLiquid;
 
-        if (GUILayout.Button("yo"))
+        if (GUILayout.Button("Change Parent"))
         {
             t.Renderers = new List<MeshRenderer>();
             var renderers = t.Parent.GetComponentsInChildren<MeshRenderer>();
@@ -177,29 +188,8 @@ public class CreateLiquidInspector : Editor
 [StructLayout(LayoutKind.Sequential)]
 public struct ScreenParticle
 {
-    public float2 ClipPosition;
-    public float CameraDepth;
+    public float4 CameraPosition;
     public float Radius;
-    public float3 Normal;
-
-    public float3 GetScreenNormal(float2 clipPoint)
-    {
-        float distFromCenter = math.distance(ClipPosition, clipPoint);
-        float2 toEdge = clipPoint - ClipPosition;
-        float2 toEdgeDir = math.normalize(toEdge);
-        float3 tangent = new float3(toEdgeDir.x, toEdgeDir.y, 0);
-        float3 ortho = new float3(0, 0, 1);
-
-        float distFromCenterNorm = distFromCenter / Radius;
-
-        //todo we need to acos interp it I think not just a lerp it to be correct for spheres
-        float3 normal = math.lerp(ortho, tangent, distFromCenterNorm);
-        return normal;
-    }
-    public override string ToString()
-    {
-        return $"Pos: {ClipPosition}, Radius: {Radius}, Depth: {CameraDepth}";
-    }
 }
 
 [GenerateHLSL(PackingRules.Exact, false)]
@@ -207,7 +197,7 @@ public struct ScreenParticle
 public struct ScreenCell
 {
     public float Alpha;
-    public float NearestParticle;
-    public float FarthestParticle;
+    public float3 NearestParticle;
+    public float3 FurthestParticle;
     public float3 NearestNormal;
 }

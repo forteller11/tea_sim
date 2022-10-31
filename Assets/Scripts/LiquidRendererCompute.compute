@@ -15,12 +15,26 @@ Texture2D<float4> ScreenGrab;
 RWTexture2D<float4> Output;
 
 float4 LightPosition = float4(5,0,0,20);
+float AlphaAtCenter;
+float AlphaAtEdge;
+float AlphaThreshold;
+
+float4 BaseColor;
+float4 BaseTint;
 
 //todo make world normal or get clip light
+float3 cameraToViewPosition(float4 cameraPos)
+{
+    float3 viewPos =  cameraPos.xyz / cameraPos.w;
+    viewPos = (viewPos + 1) /2; //from -1,1 to 0,1;
+    return viewPos;
+}
+
 float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 {
-    float distFromCenter = distance(screenParticle.ClipPosition, clipPoint);
-    float2 toEdge = clipPoint - screenParticle.ClipPosition;
+    float3 viewPos = cameraToViewPosition(screenParticle.CameraPosition);
+    float distFromCenter = distance(viewPos, clipPoint);
+    float2 toEdge = clipPoint - viewPos;
     float2 toEdgeDir = normalize(toEdge);
     float3 tangent = float3(toEdgeDir.x, toEdgeDir.y, 0);
     float3 ortho = float3(0, 0, 1);
@@ -32,6 +46,8 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
     return normalize(normal);
 }
 
+//assumes w is a homoegenous coord
+
 [numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
@@ -40,38 +56,42 @@ void main (uint3 id : SV_DispatchThreadID)
     ScreenCell cell = ScreenCells[indexFlat];
     cell.Alpha = 0;
     cell.NearestNormal = float3(0,0,-1);
-    cell.NearestParticle = 1000000;
-    cell.FarthestParticle = -1000000;
+    cell.NearestParticle = float3( 1000000, 100000, 100000);
+    cell.FurthestParticle = float3(-1000000,-100000,-100000);
 
     float2 cellScreenPos = float2((float) id.x / CellsDimension.x, (float) id.y / CellsDimension.y);
     for (int k = 0; k < ParticlesLength; k++)
     {
         ScreenParticle part = ScreenParticles[k];
         //todo make this the distance to the sphere at screen... not just the center
-        float screenDist = distance(cellScreenPos, part.ClipPosition.xy);
-        if (screenDist < part.Radius)
+        float2 partScreenPos = cameraToViewPosition(part.CameraPosition);
+        float distFromCellToPartCenter = distance(cellScreenPos, partScreenPos.xy);
+        if (distFromCellToPartCenter < part.Radius)
         {
-            float distance = part.CameraDepth;
-            cell.Alpha = lerp(cell.Alpha, 1, 0.1f);
-            if (distance < cell.NearestParticle)
+            float percentToEdge = distFromCellToPartCenter / part.Radius;
+            float alpha = lerp(AlphaAtCenter, AlphaAtEdge, percentToEdge);
+            cell.Alpha = lerp(cell.Alpha, 1, alpha);
+            
+            if (distFromCellToPartCenter < part.Radius)
             {
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
+                cell.NearestParticle = part.CameraPosition;
             }
-
-            cell.NearestParticle = min(cell.NearestParticle, distance);
-            cell.FarthestParticle = max(cell.FarthestParticle, distance);
         }
     }
 
     ScreenCells[indexFlat] = cell;
 }
 
-//remember to renormalized at the end!
+//remember to renormalize at the end!
 void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
 {
-    //todo this breaks normal... stop this
+    //this breaks normal... must be renormalized at the end
     cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, addedWeight);
+    
     cell.Alpha += other.Alpha * addedWeight;
+    cell.FurthestParticle += other.FurthestParticle * addedWeight;
+    cell.NearestParticle += other.NearestParticle * addedWeight;
 }
 
 //this isn't technically a box blur because the kernal is not currently shaped like a box... it has 8 pixels missing
@@ -89,7 +109,7 @@ ScreenCell boxBlur(int2 index)
     ScreenCell cell;
     cell.Alpha = 0;
     cell.NearestNormal = float3(0,0,0);
-    cell.FarthestParticle = 0;
+    cell.FurthestParticle = 0;
     cell.NearestParticle = 0;
     
     float selfWeight = 0.16;
@@ -139,35 +159,33 @@ void main2 (uint3 id : SV_DispatchThreadID)
     ScreenCell cell = boxBlur(id.xy);
 
     //render
-    float refractionAmount = 70;
-    float2 refractedUV = cell.NearestNormal.xy * refractionAmount * cell.Alpha + index2DGrab;
+    float refractionAmount = 10;
+    float2 refractedUV = cell.NearestNormal.xy * refractionAmount * (cell.Alpha+0.3) + index2DGrab;
 
-    float4 blueTint = float4 (.4,.8,1,1);
-    float4 blueConstant = float4 (.3,.3,1,1);
     float4 refractedPixel = ScreenGrab[refractedUV];
 
-    float4 refractedAndTinted = blueTint * refractedPixel;
-    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, blueConstant, 0.5);
-
+    float4 refractedAndTinted = BaseTint * refractedPixel;
+    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, BaseColor, 0.2);
+    
     float3 lightDir = normalize(LightPosition.xyz);
     float3 reflectedRay = normalize(reflect(lightDir, cell.NearestNormal));
-    float amountReflectedNormal = max(dot(float3(0,0,-1), reflectedRay), 0.5);
+    float amountReflectedNormal = max(dot(float3(0,0,1), reflectedRay), 0.5);
 
     float specular = amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal;
+    float specularClamped = lerp(round(specular), specular, 0.1);
     
-    float3 color = lerp(refractedAndTintedAndConstant.xyz, float3(1,1,1), specular);
+    float3 color = lerp(refractedAndTintedAndConstant.xyz, float3(1,1,1), specularClamped);
     // Output[index2D] = float4(color,1);
     // return;
-    if (cell.Alpha >  0.2)
+    if (cell.Alpha > AlphaThreshold)
     {
-        Output[index2D] = float4(color, cell.Alpha);
+        Output[index2D] = float4(color, min(cell.Alpha*2, 1));
     }
     else
     {
         Output[index2D] = float4(0,0,0,0);
     }
 
-    // Output[index2D] = float4(cell.NearestNormal.xyz, 1);
 }
 
 //use circles for uv map...
