@@ -102,7 +102,6 @@ public class CreateLiquid : MonoBehaviour
             //todo nearclip somehow effects radius and it shouldnt....
             //todo fov changes dont effect radius like it should.
             part.Radius = (1/(clipPos.z))*0.5f;
-            Debug.Log(clipPos);
             // part.NearestPosition = correctedClipPos;
             _particles[i] = part;
         }
