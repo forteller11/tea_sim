@@ -1,6 +1,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel main
 #pragma kernel main2
+#pragma kernel blurKernal
 #include "Assets/Scripts/CreateLiquid.cs.hlsl"
 
 float ParticlesLength;
@@ -8,7 +9,7 @@ StructuredBuffer<ScreenParticle> ScreenParticles;
 
 float4 CellsDimension;
 RWStructuredBuffer<ScreenCell> ScreenCells;
-RWStructuredBuffer<ScreenCell> ScreenCellsBlurred;
+RWStructuredBuffer<ScreenCell> ScreenCells2;
 
 float4 ScreenGrabDimensions;
 Texture2D<float4> ScreenGrab;
@@ -100,7 +101,7 @@ void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
 //[x][x][x][x][x]
 //[ ][x][x][x][ ]
 //[x][ ][x][ ][x]
-ScreenCell boxBlur(int2 index)
+ScreenCell boxBlurScreenCell(int2 index, RWStructuredBuffer<ScreenCell> cellsSrc)
 {
     int indexFlat = index.x + index.y * CellsDimension.x;
     int horizontalIncrement = 1;
@@ -118,34 +119,51 @@ ScreenCell boxBlur(int2 index)
     float diagonalWeight1 = 0.05; // 74
     float diagonalWeight2 = 0.05;
     
-    weightedAdd(cell, ScreenCells[indexFlat], selfWeight);
+    weightedAdd(cell, cellsSrc[indexFlat], selfWeight);
     
     //manhatten nearest
-    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement], manhatten1Weight);
-    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement], manhatten1Weight);
-    weightedAdd(cell, ScreenCells[indexFlat + verticalIncrement], manhatten1Weight);
-    weightedAdd(cell, ScreenCells[indexFlat - verticalIncrement], manhatten1Weight);
+    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement], manhatten1Weight);
+    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement], manhatten1Weight);
+    weightedAdd(cell, cellsSrc[indexFlat + verticalIncrement], manhatten1Weight);
+    weightedAdd(cell, cellsSrc[indexFlat - verticalIncrement], manhatten1Weight);
 
     //diagonal nearest
-    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement + verticalIncrement], diagonalWeight1);
-    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement + verticalIncrement], diagonalWeight1);
-    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement - verticalIncrement], diagonalWeight1);
-    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement - verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement + verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement + verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement - verticalIncrement], diagonalWeight1);
+    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement - verticalIncrement], diagonalWeight1);
 
     //manhatten non nearest
-    weightedAdd(cell, ScreenCells[indexFlat + horizontalIncrement * 2], manhatten2Weight);
-    weightedAdd(cell, ScreenCells[indexFlat - horizontalIncrement * 2], manhatten2Weight);
-    weightedAdd(cell, ScreenCells[indexFlat + verticalIncrement * 2], manhatten2Weight);
-    weightedAdd(cell, ScreenCells[indexFlat - verticalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, cellsSrc[indexFlat + verticalIncrement * 2], manhatten2Weight);
+    weightedAdd(cell, cellsSrc[indexFlat - verticalIncrement * 2], manhatten2Weight);
 
     //diagonal non nearest
-    weightedAdd(cell, ScreenCells[indexFlat + (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
-    weightedAdd(cell, ScreenCells[indexFlat - (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
-    weightedAdd(cell, ScreenCells[indexFlat + (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
-    weightedAdd(cell, ScreenCells[indexFlat - (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, cellsSrc[indexFlat + (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, cellsSrc[indexFlat - (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, cellsSrc[indexFlat + (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
+    weightedAdd(cell, cellsSrc[indexFlat - (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
 
     cell.NearestNormal = normalize(cell.NearestNormal);
     return cell;
+}
+
+bool UseEvenBufferToWrite = true;
+[numthreads(8,8,1)]
+void blurKernal (uint3 id : SV_DispatchThreadID)
+{
+    float2 index2D = id.xy;
+    int indexFlat = index2D.x + index2D.y * CellsDimension.x;
+    
+    RWStructuredBuffer<ScreenCell> src;
+    RWStructuredBuffer<ScreenCell> dst;
+    
+        src = ScreenCells;
+        dst = ScreenCells2;
+    
+
+    dst[indexFlat] = boxBlurScreenCell(index2D, src);
 }
 
 //todo go based on output texture
@@ -153,10 +171,12 @@ ScreenCell boxBlur(int2 index)
 void main2 (uint3 id : SV_DispatchThreadID)
 {
     float2 index2D = id.xy;
+    int indexFlat = index2D.x + index2D.y * CellsDimension.x;
     float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
     float2 index2DGrab = id.xy * scaleAmount;
-    
-    ScreenCell cell = boxBlur(id.xy);
+
+    //ScreenCell cell = ScreenCells2[indexFlat];
+    ScreenCell cell = boxBlurScreenCell(id.xy, ScreenCells);
 
     //render
     float refractionAmount = 10;
@@ -179,13 +199,12 @@ void main2 (uint3 id : SV_DispatchThreadID)
     // return;
     if (cell.Alpha > AlphaThreshold)
     {
-        Output[index2D] = float4(color, min(cell.Alpha*2, 1));
+        Output[index2D] = float4(color, min(cell.Alpha*3, 1));
     }
     else
     {
         Output[index2D] = float4(0,0,0,0);
     }
-
 }
 
 //use circles for uv map...

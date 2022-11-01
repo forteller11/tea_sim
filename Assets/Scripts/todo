@@ -23,3 +23,10 @@ blur with multiple dispatch...
 
 world normal
 gloss
+
+
+
+....
+track nearest/farthest dist
+use dist for shading
+use dist for clipping....

@@ -24,6 +24,7 @@ public class CreateLiquid : MonoBehaviour
     public ComputeShader ComputeShader;
     public ComputeBuffer _particlesBuffer;
     private ComputeBuffer _screenCellsBuffer;
+    private ComputeBuffer _screenCells2Buffer;
     private RenderTexture _renderTexture;
 
     [Header("Compute Params")]
@@ -38,9 +39,11 @@ public class CreateLiquid : MonoBehaviour
     public GameObject Parent;
 
     private int _main1Compute = -1;
+    private int _blurCompute = -1;
     private int _main2Compute = -1;
     private int _particleHandle = -1;
     private int _screenCellsHandle = -1;
+    private int _screenCells2Handle = -1;
     private int _outputTextureHandle = -1;
     private int _screenGrabTextureHandle = -1;
     void Start()
@@ -54,18 +57,24 @@ public class CreateLiquid : MonoBehaviour
             {
                 _particlesBuffer = new ComputeBuffer(_particles.Length, sizeof(ScreenParticle));
                 _screenCellsBuffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
+                _screenCells2Buffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
             }
 
             _renderTexture = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
             _renderTexture.enableRandomWrite = true;
             _main1Compute = ComputeShader.FindKernel("main");
             _main2Compute = ComputeShader.FindKernel("main2");
+            _blurCompute = ComputeShader.FindKernel("blurKernal");
             _particleHandle = Shader.PropertyToID("ScreenParticles");
             _screenCellsHandle = Shader.PropertyToID("ScreenCells");
+            _screenCells2Handle = Shader.PropertyToID("ScreenCells2");
             _outputTextureHandle = Shader.PropertyToID("Output");
             _screenGrabTextureHandle = Shader.PropertyToID("ScreenGrab");
             _liquidRenderer.material.mainTexture = _renderTexture;
             _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
+            
+            _screenCellsBuffer.SetData(_screenCells);
+            _screenCells2Buffer.SetData(_screenCells);
     }
 
     void Update()
@@ -93,15 +102,12 @@ public class CreateLiquid : MonoBehaviour
             var worldPos = go.position;
             var camPos = worldToViewMat * new Vector4(worldPos.x, worldPos.y, worldPos.z, 1);
             var clipPos = math.mul(projectMat, camPos);
-            var correctedClipPos = clipPos.xyz;
-            correctedClipPos /= clipPos.w;
-            correctedClipPos = (correctedClipPos + 1) / 2;
             
             var part = new ScreenParticle();
             part.CameraPosition = clipPos;
             //todo nearclip somehow effects radius and it shouldnt....
             //todo fov changes dont effect radius like it should.
-            part.Radius = (1/(clipPos.z))*0.5f;
+            part.Radius = (1/(clipPos.z))*0.25f;
             // part.NearestPosition = correctedClipPos;
             _particles[i] = part;
         }
@@ -110,8 +116,8 @@ public class CreateLiquid : MonoBehaviour
         #region compute
         var targetTexture = Camera.main.targetTexture;
         int threadSize = 8;
+        int3 threadGroup = new int3(ScreenResolution.x / threadSize, ScreenResolution.y / threadSize, 1);
         _particlesBuffer.SetData(_particles);
-        _screenCellsBuffer.SetData(_screenCells);
 
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
@@ -125,8 +131,14 @@ public class CreateLiquid : MonoBehaviour
         //particles to screen
         ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
         ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
-        ComputeShader.Dispatch(_main1Compute, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
+        ComputeShader.Dispatch(_main1Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         
+        //blur
+        // ComputeShader.SetBool("UseEvenBufferToWrite", true);
+        // ComputeShader.SetBuffer(_blurCompute, _screenCellsHandle, _screenCellsBuffer);
+        // ComputeShader.SetBuffer(_blurCompute, _screenCells2Handle, _screenCellsBuffer);
+        // ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+
         //blur and write to output
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
@@ -135,7 +147,7 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
         ComputeShader.SetTexture(_main2Compute, _outputTextureHandle, _renderTexture);
         ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, targetTexture);
-        ComputeShader.Dispatch(_main2Compute, ScreenResolution.x / threadSize, ScreenResolution.y /threadSize, 1);
+        ComputeShader.Dispatch(_main2Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         #endregion
         
     }
