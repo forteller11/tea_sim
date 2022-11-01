@@ -1,7 +1,7 @@
 // Each #kernel tells which function to compile; you can have many kernels
 #pragma kernel main
-#pragma kernel main2
 #pragma kernel blurKernal
+#pragma kernel main2
 #include "Assets/Scripts/CreateLiquid.cs.hlsl"
 
 float ParticlesLength;
@@ -149,21 +149,14 @@ ScreenCell boxBlurScreenCell(int2 index, RWStructuredBuffer<ScreenCell> cellsSrc
     return cell;
 }
 
-bool UseEvenBufferToWrite = true;
 [numthreads(8,8,1)]
 void blurKernal (uint3 id : SV_DispatchThreadID)
 {
     float2 index2D = id.xy;
     int indexFlat = index2D.x + index2D.y * CellsDimension.x;
     
-    RWStructuredBuffer<ScreenCell> src;
-    RWStructuredBuffer<ScreenCell> dst;
-    
-        src = ScreenCells;
-        dst = ScreenCells2;
-    
-
-    dst[indexFlat] = boxBlurScreenCell(index2D, src);
+    ScreenCells2[indexFlat] = boxBlurScreenCell(index2D, ScreenCells);
+    //ScreenCells2[indexFlat] = ScreenCells[indexFlat];
 }
 
 //todo go based on output texture
@@ -175,8 +168,8 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
     float2 index2DGrab = id.xy * scaleAmount;
 
-    //ScreenCell cell = ScreenCells2[indexFlat];
-    ScreenCell cell = boxBlurScreenCell(id.xy, ScreenCells);
+    ScreenCell cell = ScreenCells2[indexFlat];
+    //ScreenCell cell = boxBlurScreenCell(id.xy, ScreenCells);
 
     //render
     float refractionAmount = 10;
@@ -205,6 +198,7 @@ void main2 (uint3 id : SV_DispatchThreadID)
     {
         Output[index2D] = float4(0,0,0,0);
     }
+    // Output[index2D] = float4(cell.NearestNormal, min(cell.Alpha*3, 1));
 }
 
 //use circles for uv map...

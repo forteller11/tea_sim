@@ -46,6 +46,8 @@ public class CreateLiquid : MonoBehaviour
     private int _screenCells2Handle = -1;
     private int _outputTextureHandle = -1;
     private int _screenGrabTextureHandle = -1;
+
+    private RenderTexture _targetRT;
     void Start()
     {
         _particles = new ScreenParticle[Renderers.Count];
@@ -56,7 +58,7 @@ public class CreateLiquid : MonoBehaviour
             unsafe
             {
                 _particlesBuffer = new ComputeBuffer(_particles.Length, sizeof(ScreenParticle));
-                _screenCellsBuffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
+                _screenCellsBuffer  = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
                 _screenCells2Buffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
             }
 
@@ -75,8 +77,31 @@ public class CreateLiquid : MonoBehaviour
             
             _screenCellsBuffer.SetData(_screenCells);
             _screenCells2Buffer.SetData(_screenCells);
+            
+            //kernal 1
+            ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
+            ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
+            
+            //blur kernal
+            ComputeShader.SetBuffer(_blurCompute, _screenCellsHandle, _screenCellsBuffer);
+            ComputeShader.SetBuffer(_blurCompute, _screenCells2Handle, _screenCells2Buffer);
+            
+            //kernal 2
+            ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
+            ComputeShader.SetBuffer(_main2Compute, _screenCells2Handle, _screenCells2Buffer);
+            ComputeShader.SetTexture(_main2Compute, _outputTextureHandle, _renderTexture);
+            _targetRT = Camera.main.targetTexture;
+            ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, _targetRT);
     }
 
+    public void SetBlurDoubleBuffers(bool writeToScreenCells2)
+    {
+        var srcBuffer = writeToScreenCells2 ? _screenCellsBuffer : _screenCells2Buffer;
+        var dstBuffer = writeToScreenCells2 ? _screenCells2Buffer : _screenCellsBuffer;
+        ComputeShader.SetBuffer(_blurCompute, _screenCellsHandle, srcBuffer);
+        ComputeShader.SetBuffer(_blurCompute, _screenCells2Handle, dstBuffer);
+    }
+    
     void Update()
     {
         #region
@@ -114,39 +139,38 @@ public class CreateLiquid : MonoBehaviour
         #endregion
 
         #region compute
-        var targetTexture = Camera.main.targetTexture;
         int threadSize = 8;
         int3 threadGroup = new int3(ScreenResolution.x / threadSize, ScreenResolution.y / threadSize, 1);
+        
         _particlesBuffer.SetData(_particles);
 
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
-        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
+        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(_targetRT.width, _targetRT.height, 0, 0));
         ComputeShader.SetFloat("AlphaAtCenter", AlphaAtCenter);
         ComputeShader.SetFloat("AlphaAtEdge", AlphaAtEdge);
         ComputeShader.SetFloat("AlphaThreshold", AlphaThreshold);
         ComputeShader.SetVector("BaseColor", BaseColor);
         ComputeShader.SetVector("BaseTint", BaseTint);
+        ComputeShader.SetVector("LightPosition", lightScreenPos);
         
         //particles to screen
-        ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
-        ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
         ComputeShader.Dispatch(_main1Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         
         //blur
-        // ComputeShader.SetBool("UseEvenBufferToWrite", true);
-        // ComputeShader.SetBuffer(_blurCompute, _screenCellsHandle, _screenCellsBuffer);
-        // ComputeShader.SetBuffer(_blurCompute, _screenCells2Handle, _screenCellsBuffer);
-        // ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(true);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(false);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(true);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(false);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(true);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
 
         //blur and write to output
-        ComputeShader.SetFloat("ParticlesLength", _particles.Length);
-        ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
-        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(targetTexture.width, targetTexture.height, 0, 0));
-        ComputeShader.SetVector("LightPosition", lightScreenPos);
-        ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
-        ComputeShader.SetTexture(_main2Compute, _outputTextureHandle, _renderTexture);
-        ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, targetTexture);
+        ComputeShader.Dispatch(_main2Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         ComputeShader.Dispatch(_main2Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         #endregion
         
