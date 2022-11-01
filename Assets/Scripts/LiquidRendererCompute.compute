@@ -61,6 +61,9 @@ void main (uint3 id : SV_DispatchThreadID)
     cell.FurthestParticle = float3(-1000000,-100000,-100000);
 
     float2 cellScreenPos = float2((float) id.x / CellsDimension.x, (float) id.y / CellsDimension.y);
+
+    float currentNearestPartDist = 100000;
+    float currentFurthestPartDist = -100000;
     for (int k = 0; k < ParticlesLength; k++)
     {
         ScreenParticle part = ScreenParticles[k];
@@ -70,14 +73,20 @@ void main (uint3 id : SV_DispatchThreadID)
         if (distFromCellToPartCenter < part.Radius)
         {
             float percentToEdge = distFromCellToPartCenter / part.Radius;
-            float alpha = lerp(AlphaAtCenter, AlphaAtEdge, percentToEdge);
-            cell.Alpha = lerp(cell.Alpha, 1, alpha);
-            
-            if (distFromCellToPartCenter < part.Radius)
+            float partAlpha = lerp(AlphaAtCenter, AlphaAtEdge, percentToEdge);
+            cell.Alpha = lerp(cell.Alpha, 1, partAlpha);
+            //todo perf: use dot() instead to avoid extra instructions?
+            float partCameraDist = distance(float3(0,0,0), part.CameraPosition.xyz);
+            if (partCameraDist < currentNearestPartDist)
             {
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
                 cell.NearestParticle = part.CameraPosition;
             }
+            if (partCameraDist > currentFurthestPartDist)
+            {
+                cell.FurthestParticle = part.CameraPosition;
+            }
+            
         }
     }
 
@@ -87,12 +96,22 @@ void main (uint3 id : SV_DispatchThreadID)
 //remember to renormalize at the end!
 void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
 {
-    //this breaks normal... must be renormalized at the end
-    cell.NearestNormal = lerp(cell.NearestNormal, other.NearestNormal, addedWeight);
+    ScreenCell otherCell;
+    if (other.Alpha > 0)
+    {
+        otherCell = other;
+    } else
+    {
+        otherCell = cell;
+    }
+   //otherCell = other;
+        //this breaks normal... must be renormalized at the end
+        cell.NearestNormal = lerp(cell.NearestNormal, otherCell.NearestNormal, addedWeight);
     
-    cell.Alpha += other.Alpha * addedWeight;
-    cell.FurthestParticle += other.FurthestParticle * addedWeight;
-    cell.NearestParticle += other.NearestParticle * addedWeight;
+        cell.Alpha += otherCell.Alpha * addedWeight;
+        cell.FurthestParticle += otherCell.FurthestParticle * addedWeight;
+        cell.NearestParticle += otherCell.NearestParticle * addedWeight;
+    
 }
 
 //this isn't technically a box blur because the kernal is not currently shaped like a box... it has 8 pixels missing
@@ -118,7 +137,7 @@ ScreenCell boxBlurScreenCell(int2 index, RWStructuredBuffer<ScreenCell> cellsSrc
     float manhatten2Weight = 0.05; //58
     float diagonalWeight1 = 0.05; // 74
     float diagonalWeight2 = 0.05;
-    
+
     weightedAdd(cell, cellsSrc[indexFlat], selfWeight);
     
     //manhatten nearest
@@ -145,6 +164,9 @@ ScreenCell boxBlurScreenCell(int2 index, RWStructuredBuffer<ScreenCell> cellsSrc
     weightedAdd(cell, cellsSrc[indexFlat + (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
     weightedAdd(cell, cellsSrc[indexFlat - (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
 
+    ScreenCell src = cellsSrc[indexFlat];
+    cell.NearestParticle = src.NearestParticle;
+    cell.FurthestParticle = src.FurthestParticle;
     cell.NearestNormal = normalize(cell.NearestNormal);
     return cell;
 }
@@ -172,8 +194,10 @@ void main2 (uint3 id : SV_DispatchThreadID)
     //ScreenCell cell = boxBlurScreenCell(id.xy, ScreenCells);
 
     //render
+    float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
+    float dist = max(distBetween,1);
     float refractionAmount = 10;
-    float2 refractedUV = cell.NearestNormal.xy * refractionAmount * (cell.Alpha+0.3) + index2DGrab;
+    float2 refractedUV = cell.NearestNormal.xy * refractionAmount * dist + index2DGrab;
 
     float4 refractedPixel = ScreenGrab[refractedUV];
 
@@ -198,7 +222,7 @@ void main2 (uint3 id : SV_DispatchThreadID)
     {
         Output[index2D] = float4(0,0,0,0);
     }
-    // Output[index2D] = float4(cell.NearestNormal, min(cell.Alpha*3, 1));
+    // Output[index2D] = float4(cell.NearestNormal, 1);
 }
 
 //use circles for uv map...

@@ -168,14 +168,17 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
         SetBlurDoubleBuffers(true);
         ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(false);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        SetBlurDoubleBuffers(true);
+        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
 
         //blur and write to output
         ComputeShader.Dispatch(_main2Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         ComputeShader.Dispatch(_main2Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         #endregion
-        
     }
-
+    
     private void OnDrawGizmos()
     {
         if (!DebugDraw)
