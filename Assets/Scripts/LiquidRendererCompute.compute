@@ -192,26 +192,30 @@ void main2 (uint3 id : SV_DispatchThreadID)
 
     ScreenCell cell = ScreenCells2[indexFlat];
     //ScreenCell cell = boxBlurScreenCell(id.xy, ScreenCells);
+    float3 lightDir = normalize(LightPosition.xyz);
 
-    //render
+    //difuse
+    float4 diffuse = BaseColor * max(dot(lightDir, cell.NearestNormal), 0.4);
+
+    //refract + tint
     float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
     float dist = max(distBetween,1);
     float refractionAmount = 10;
     float2 refractedUV = cell.NearestNormal.xy * refractionAmount * dist + index2DGrab;
+    float3 refractedPixel = ScreenGrab[refractedUV].xyz;
+    float3 refractedAndTinted = BaseTint.xyz * refractedPixel;
 
-    float4 refractedPixel = ScreenGrab[refractedUV];
-
-    float4 refractedAndTinted = BaseTint * refractedPixel;
-    float4 refractedAndTintedAndConstant = lerp(refractedAndTinted, BaseColor, 0.2);
+    //refract tint diffuse
+    float3 refractTintDiffuse = lerp(refractedAndTinted, diffuse, 0.2);
     
-    float3 lightDir = normalize(LightPosition.xyz);
     float3 reflectedRay = normalize(reflect(lightDir, cell.NearestNormal));
-    float amountReflectedNormal = max(dot(float3(0,0,1), reflectedRay), 0.5);
+    float amountReflectedNormal = max(dot(float3(0,0,-1), reflectedRay), 0.0);
 
-    float specular = amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal;
+    float specular = amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal;
     float specularClamped = lerp(round(specular), specular, 0.1);
-    
-    float3 color = lerp(refractedAndTintedAndConstant.xyz, float3(1,1,1), specularClamped);
+    //tint the specular color based off the refraction color... but dont make it too dark, and never above (1,1,1)
+    float3 specularTinted = max(min(refractTintDiffuse.xyz*5, float3(1,1,1)), float3(0.5,0.5,0.5));
+    float3 color = lerp(refractTintDiffuse.xyz, specularTinted, specularClamped);
     // Output[index2D] = float4(color,1);
     // return;
     if (cell.Alpha > AlphaThreshold)
