@@ -1,32 +1,14 @@
+pouring!
 
+depth testing
+color based on speed/turbulence
 
+actualy simulate particles like water!
+
+async dispatch + set data (water is one frame behind physics?)
+acceleration data structure
 
 depth tracking / nearest farther... for occlusion but also shading
 shader work
 
-do gloss
-- track pos
-- normal in world space
-- track camera pos
-- specular lighting!
-- shader work
-- do diffuse?
-
-- resample at full res
-blend stuff more     
-
-track normal with only xy
-
-double buffer for low rez blur but then high res final pass!
-
-blur with multiple dispatch...
-
-world normal
-gloss
-
-
-
-....
-track nearest/farthest dist
-use dist for shading
-use dist for clipping....
+blur based on distance.... (the closer the more blur....)

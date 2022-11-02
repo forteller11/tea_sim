@@ -15,11 +15,9 @@ public class CreateLiquid : MonoBehaviour
     private ScreenCell [] _screenCells;
     public int2 ScreenResolution = new int2(32,32);
     private ScreenParticle [] _particles;
-    private Texture2D _texture;
     [SerializeField] MeshRenderer _liquidRenderer;
     [SerializeField] MeshRenderer _screenGrabRenderer;
     [SerializeField] Transform _pointLight;
-    private Color[] _colors;
 
     public ComputeShader ComputeShader;
     public ComputeBuffer _particlesBuffer;
@@ -34,6 +32,17 @@ public class CreateLiquid : MonoBehaviour
     [Space]
     public Color BaseColor = new Color(0,0,1);
     public Color BaseTint = new Color(.6f,.6f,1);
+    public Color AmbientColor = new Color(1,1,1);
+    [Space]
+    [Range(0,1)] public float DiffuseVsAmbient = .25f;
+    [Range(0,1)] public float DiffuseVsRefraction = .8f;
+    public float RefractionMultiplier = 10f;
+    public int SpecularPower = 5;
+    [Range(0,1)] public float SpecularRoughness = 0.1f;
+
+    public int BlurNumber = 2;
+
+
     [Header("Debug")]
     public bool DebugDraw;
     public GameObject Parent;
@@ -52,8 +61,6 @@ public class CreateLiquid : MonoBehaviour
     {
         _particles = new ScreenParticle[Renderers.Count];
             _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
-            _texture = new Texture2D(ScreenResolution.x, ScreenResolution.y, TextureFormat.RGBA32, false, true);
-            _colors = new Color[_texture.width * _texture.height];
         
             unsafe
             {
@@ -64,6 +71,7 @@ public class CreateLiquid : MonoBehaviour
 
             _renderTexture = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
             _renderTexture.enableRandomWrite = true;
+            _renderTexture.filterMode = FilterMode.Point;
             _main1Compute = ComputeShader.FindKernel("main");
             _main2Compute = ComputeShader.FindKernel("main2");
             _blurCompute = ComputeShader.FindKernel("blurKernal");
@@ -132,7 +140,7 @@ public class CreateLiquid : MonoBehaviour
             part.CameraPosition = clipPos;
             //todo nearclip somehow effects radius and it shouldnt....
             //todo fov changes dont effect radius like it should.
-            part.Radius = (1/(clipPos.z))*0.25f;
+            part.Radius = (1/(clipPos.z))*0.3f;
             // part.NearestPosition = correctedClipPos;
             _particles[i] = part;
         }
@@ -147,31 +155,35 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
         ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(_targetRT.width, _targetRT.height, 0, 0));
+        
         ComputeShader.SetFloat("AlphaAtCenter", AlphaAtCenter);
         ComputeShader.SetFloat("AlphaAtEdge", AlphaAtEdge);
         ComputeShader.SetFloat("AlphaThreshold", AlphaThreshold);
+        
         ComputeShader.SetVector("BaseColor", BaseColor);
         ComputeShader.SetVector("BaseTint", BaseTint);
+        ComputeShader.SetVector("AmbientColor", AmbientColor);
+
+        ComputeShader.SetFloat("DiffuseVsAmbient", DiffuseVsAmbient);
+        ComputeShader.SetFloat("DiffuseVsRefraction", DiffuseVsRefraction);
+        ComputeShader.SetFloat("RefractionMultiplier", RefractionMultiplier);
+        ComputeShader.SetInt("SpecularPower", SpecularPower);
+        ComputeShader.SetFloat("SpecularRoughness", SpecularRoughness);
+        
         ComputeShader.SetVector("LightPosition", lightScreenPos);
+
         
         //particles to screen
         ComputeShader.Dispatch(_main1Compute, threadGroup.x, threadGroup.y, threadGroup.z);
         
         //blur
-        SetBlurDoubleBuffers(true);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
-        SetBlurDoubleBuffers(false);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
-        SetBlurDoubleBuffers(true);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
-        SetBlurDoubleBuffers(false);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
-        SetBlurDoubleBuffers(true);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
-        SetBlurDoubleBuffers(false);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
-        SetBlurDoubleBuffers(true);
-        ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        for (int i = 0; i < BlurNumber; i++)
+        {
+            SetBlurDoubleBuffers(true);
+            ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+            SetBlurDoubleBuffers(false);
+            ComputeShader.Dispatch(_blurCompute, threadGroup.x, threadGroup.y, threadGroup.z);
+        }
 
         //blur and write to output
         ComputeShader.Dispatch(_main2Compute, threadGroup.x, threadGroup.y, threadGroup.z);

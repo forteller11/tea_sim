@@ -22,6 +22,13 @@ float AlphaThreshold;
 
 float4 BaseColor;
 float4 BaseTint;
+float4 AmbientColor;
+
+float DiffuseVsAmbient;
+float DiffuseVsRefraction;
+float RefractionMultiplier;
+int SpecularPower;
+float SpecularRoughness;
 
 //todo make world normal or get clip light
 float3 cameraToViewPosition(float4 cameraPos)
@@ -195,24 +202,26 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float3 lightDir = normalize(LightPosition.xyz);
 
     //difuse
-    float4 diffuse = BaseColor * max(dot(lightDir, cell.NearestNormal), 0.4);
+    
+    float4 diffuse = BaseColor * max(dot(lightDir, cell.NearestNormal), 0.0);
+    float4 diffuseAndAmbient = lerp(diffuse, AmbientColor, DiffuseVsAmbient);
 
     //refract + tint
     float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
     float dist = max(distBetween,1);
-    float refractionAmount = 10;
+    float refractionAmount = RefractionMultiplier;
     float2 refractedUV = cell.NearestNormal.xy * refractionAmount * dist + index2DGrab;
     float3 refractedPixel = ScreenGrab[refractedUV].xyz;
     float3 refractedAndTinted = BaseTint.xyz * refractedPixel;
 
     //refract tint diffuse
-    float3 refractTintDiffuse = lerp(refractedAndTinted, diffuse, 0.2);
+    float3 refractTintDiffuse = lerp(diffuseAndAmbient, refractedAndTinted, DiffuseVsRefraction);
     
     float3 reflectedRay = normalize(reflect(lightDir, cell.NearestNormal));
     float amountReflectedNormal = max(dot(float3(0,0,-1), reflectedRay), 0.0);
 
-    float specular = amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal * amountReflectedNormal;
-    float specularClamped = lerp(round(specular), specular, 0.1);
+    float specular = pow(amountReflectedNormal, SpecularPower);
+    float specularClamped = lerp(round(specular), specular, SpecularRoughness);
     //tint the specular color based off the refraction color... but dont make it too dark, and never above (1,1,1)
     float3 specularTinted = max(min(refractTintDiffuse.xyz*5, float3(1,1,1)), float3(0.5,0.5,0.5));
     float3 color = lerp(refractTintDiffuse.xyz, specularTinted, specularClamped);
