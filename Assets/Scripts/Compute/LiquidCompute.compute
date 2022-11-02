@@ -92,10 +92,16 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float2 index2DGrab = id.xy * scaleAmount;
 
     //dithering setup
-    const float kernal[4]= {1.0 /4.0, 2.0/4.0, 3.0/4.0, 1.0/4.0};
-    int2 leftOver = index2D % 2;
-    int flatDitherIndex = leftOver.x + leftOver.y * 2;
-    float floor = kernal[flatDitherIndex];
+    // const float kernal[4]= {1.0 /4.0, 2.0/4.0, 3.0/4.0, 1.0/4.0};
+    const float kernal[16]= {
+        1,8,2,10,
+    12,4,14,6,
+    3,11,1,9,
+    15,7,13,5};
+    int kernalSize = 4;
+    int2 leftOver = index2D % kernalSize;
+    int flatDitherIndex = leftOver.x + leftOver.y * kernalSize;
+    float floor = kernal[flatDitherIndex]/(kernalSize*kernalSize);
 
     ScreenCell cell = ScreenCells2[indexFlat];
     float3 lightDir = normalize(LightPosition.xyz);
