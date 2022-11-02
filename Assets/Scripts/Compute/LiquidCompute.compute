@@ -3,6 +3,7 @@
 #pragma kernel blurKernal
 #pragma kernel main2
 #include "Assets/Scripts/CreateLiquid.cs.hlsl"
+#include "Assets/Scripts/Compute/ComputeUtils.hlsl"
 
 float ParticlesLength;
 StructuredBuffer<ScreenParticle> ScreenParticles;
@@ -30,38 +31,12 @@ float RefractionMultiplier;
 int SpecularPower;
 float SpecularRoughness;
 
-//todo make world normal or get clip light
-float3 cameraToViewPosition(float4 cameraPos)
-{
-    float3 viewPos =  cameraPos.xyz / cameraPos.w;
-    viewPos = (viewPos + 1) /2; //from -1,1 to 0,1;
-    return viewPos;
-}
-
-float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
-{
-    float3 viewPos = cameraToViewPosition(screenParticle.CameraPosition);
-    float distFromCenter = distance(viewPos, clipPoint);
-    float2 toEdge = clipPoint - viewPos;
-    float2 toEdgeDir = normalize(toEdge);
-    float3 tangent = float3(toEdgeDir.x, toEdgeDir.y, 0);
-    float3 ortho = float3(0, 0, 1);
-
-    float distFromCenterNorm = distFromCenter / screenParticle.Radius;
-
-    //todo we need to acos interp it I think not just a lerp it to be correct for spheres
-    float3 normal = lerp(ortho, tangent, distFromCenterNorm);
-    return normalize(normal);
-}
-
-//assumes w is a homoegenous coord
-
 [numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
 {
     int indexFlat = id.x + id.y * CellsDimension.x;
     
-    ScreenCell cell = ScreenCells[indexFlat];
+    ScreenCell cell;
     cell.Alpha = 0;
     cell.NearestNormal = float3(0,0,-1);
     cell.NearestParticle = float3( 1000000, 100000, 100000);
@@ -99,95 +74,15 @@ void main (uint3 id : SV_DispatchThreadID)
     ScreenCells[indexFlat] = cell;
 }
 
-//remember to renormalize at the end!
-void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
-{
-    ScreenCell otherCell;
-    if (other.Alpha > 0)
-    {
-        otherCell = other;
-    } else
-    {
-        otherCell = cell;
-    }
-   //otherCell = other;
-        //this breaks normal... must be renormalized at the end
-        cell.NearestNormal = lerp(cell.NearestNormal, otherCell.NearestNormal, addedWeight);
-    
-        cell.Alpha += otherCell.Alpha * addedWeight;
-        cell.FurthestParticle += otherCell.FurthestParticle * addedWeight;
-        cell.NearestParticle += otherCell.NearestParticle * addedWeight;
-    
-}
-
-//this isn't technically a box blur because the kernal is not currently shaped like a box... it has 8 pixels missing
-//[x][ ][x][ ][x]
-//[ ][x][x][x][ ]
-//[x][x][x][x][x]
-//[ ][x][x][x][ ]
-//[x][ ][x][ ][x]
-ScreenCell boxBlurScreenCell(int2 index, RWStructuredBuffer<ScreenCell> cellsSrc)
-{
-    int indexFlat = index.x + index.y * CellsDimension.x;
-    int horizontalIncrement = 1;
-    int verticalIncrement = CellsDimension.x;
-
-    ScreenCell cell;
-    cell.Alpha = 0;
-    cell.NearestNormal = float3(0,0,0);
-    cell.FurthestParticle = 0;
-    cell.NearestParticle = 0;
-    
-    float selfWeight = 0.16;
-    float manhatten1Weight = 0.06;
-    float manhatten2Weight = 0.05; //58
-    float diagonalWeight1 = 0.05; // 74
-    float diagonalWeight2 = 0.05;
-
-    weightedAdd(cell, cellsSrc[indexFlat], selfWeight);
-    
-    //manhatten nearest
-    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement], manhatten1Weight);
-    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement], manhatten1Weight);
-    weightedAdd(cell, cellsSrc[indexFlat + verticalIncrement], manhatten1Weight);
-    weightedAdd(cell, cellsSrc[indexFlat - verticalIncrement], manhatten1Weight);
-
-    //diagonal nearest
-    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement + verticalIncrement], diagonalWeight1);
-    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement + verticalIncrement], diagonalWeight1);
-    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement - verticalIncrement], diagonalWeight1);
-    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement - verticalIncrement], diagonalWeight1);
-
-    //manhatten non nearest
-    weightedAdd(cell, cellsSrc[indexFlat + horizontalIncrement * 2], manhatten2Weight);
-    weightedAdd(cell, cellsSrc[indexFlat - horizontalIncrement * 2], manhatten2Weight);
-    weightedAdd(cell, cellsSrc[indexFlat + verticalIncrement * 2], manhatten2Weight);
-    weightedAdd(cell, cellsSrc[indexFlat - verticalIncrement * 2], manhatten2Weight);
-
-    //diagonal non nearest
-    weightedAdd(cell, cellsSrc[indexFlat + (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
-    weightedAdd(cell, cellsSrc[indexFlat - (horizontalIncrement + verticalIncrement) * 2], diagonalWeight2);
-    weightedAdd(cell, cellsSrc[indexFlat + (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
-    weightedAdd(cell, cellsSrc[indexFlat - (horizontalIncrement - verticalIncrement) * 2], diagonalWeight2);
-
-    ScreenCell src = cellsSrc[indexFlat];
-    cell.NearestParticle = src.NearestParticle;
-    cell.FurthestParticle = src.FurthestParticle;
-    cell.NearestNormal = normalize(cell.NearestNormal);
-    return cell;
-}
-
 [numthreads(8,8,1)]
 void blurKernal (uint3 id : SV_DispatchThreadID)
 {
     float2 index2D = id.xy;
     int indexFlat = index2D.x + index2D.y * CellsDimension.x;
     
-    ScreenCells2[indexFlat] = boxBlurScreenCell(index2D, ScreenCells);
-    //ScreenCells2[indexFlat] = ScreenCells[indexFlat];
+    ScreenCells2[indexFlat] = boxBlurScreenCell(index2D, CellsDimension, ScreenCells);
 }
 
-//todo go based on output texture
 [numthreads(8,8,1)]
 void main2 (uint3 id : SV_DispatchThreadID)
 {
@@ -198,11 +93,9 @@ void main2 (uint3 id : SV_DispatchThreadID)
 
     //dithering setup
     const float kernal[4]= {1.0 /4.0, 2.0/4.0, 3.0/4.0, 1.0/4.0};
-    const float kernal2[4]= {0.5 /4.0, 1.5/4.0, 2.5/4.0, 1.5/4.0};
     int2 leftOver = index2D % 2;
     int flatDitherIndex = leftOver.x + leftOver.y * 2;
     float floor = kernal[flatDitherIndex];
-    float floor2 = kernal2[flatDitherIndex];
 
     ScreenCell cell = ScreenCells2[indexFlat];
     float3 lightDir = normalize(LightPosition.xyz);
