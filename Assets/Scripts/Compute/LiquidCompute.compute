@@ -91,7 +91,7 @@ void main2 (uint3 id : SV_DispatchThreadID)
 {
     float2 index2D = id.xy;
     int indexFlat = index2D.x + index2D.y * CellsDimension.x;
-    float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
+    float2 scaleAmount = 1 /CellsDimension.xy;
     float2 index2DGrab = id.xy * scaleAmount;
 
     //dithering setup
@@ -121,7 +121,7 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
     float dist = max(distBetween, 1);
     float refractionAmount = RefractionMultiplier;
-    float2 refractedUV = (index2DGrab);
+    float2 refractedUV = (index2DGrab + (cell.NearestNormal.xy * dist));
     // float3 refractedPixel = ScreenGrab[refractedUV].xyz;
     // float3 refractedAndTinted = BaseTint.xyz * refractedPixel;
 
@@ -147,7 +147,7 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float3 color = lerp(refractTintDiffuse.xyz, specularColor, specularAmount);
     if (cell.Alpha > AlphaThreshold)
     {
-        OutputColor[index2D] = float4(color, cell.Alpha);
+        OutputColor[index2D] = float4(color, 1);
     }
     else
     {

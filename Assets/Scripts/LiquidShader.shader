@@ -42,11 +42,16 @@ Shader "Unlit/LiquidShader"
 				UNITY_FOG_COORDS(1)
 				float4 vertex : SV_POSITION;
 			};
-
+			float4 _TintColor;
+			float _DiffuseVsRefraction;
+			float _RefractionAmount;
+			
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			sampler2D _SpecialTex;
-			float4 _SpecialTex_ST;
+			// float4 _SpecialTex_ST;
+			sampler2D _ScreenGrab;
+			// float4 _ScreenGrab_ST;
 
 			v2f vert (appdata v)
 			{
@@ -59,10 +64,18 @@ Shader "Unlit/LiquidShader"
 			
 			fixed4 frag (v2f i) : SV_Target
 			{
-				float4 specialTex = tex2D(_SpecialTex, i.uv);
-				fixed4 col = tex2D(_MainTex, i.uv );
-				col.a = min(1,col.a*3);
-				return col;
+				fixed4 specialTex = tex2D(_SpecialTex, i.uv);
+				float2 refractedUV = i.uv + (specialTex.xy * _RefractionAmount);
+				
+				fixed4 liquidCol = tex2D(_MainTex, i.uv);
+				float alpha = liquidCol.a;
+				alpha = min(1,alpha*3);
+
+				fixed3 diffuseColor = liquidCol.xyz;
+				fixed3 refractCol = tex2D(_ScreenGrab, refractedUV).xyz;
+				fixed3 diffuseRefracted = lerp(diffuseColor, refractCol, _DiffuseVsRefraction);
+				fixed4 output = fixed4(diffuseRefracted, alpha);
+				return output;
 			}
 			ENDCG
 		}
