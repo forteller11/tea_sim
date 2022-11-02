@@ -44,7 +44,6 @@ public class CreateLiquid : MonoBehaviour
     [Space]
     public int BlurNumber = 2;
 
-
     [Header("Debug")]
     public bool DebugDraw;
     public GameObject Parent;

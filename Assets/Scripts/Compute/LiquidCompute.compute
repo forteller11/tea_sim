@@ -55,11 +55,12 @@ void main (uint3 id : SV_DispatchThreadID)
         float distFromCellToPartCenter = distance(cellScreenPos, partScreenPos.xy);
         if (distFromCellToPartCenter < part.Radius)
         {
+            float partCameraDist = distance(float3(0,0,0), part.CameraPosition.xyz);
+            
             float percentToEdge = distFromCellToPartCenter / part.Radius;
             float partAlpha = lerp(AlphaAtCenter, AlphaAtEdge, percentToEdge);
             cell.Alpha = lerp(cell.Alpha, 1, partAlpha);
             //todo perf: use dot() instead to avoid extra instructions?
-            float partCameraDist = distance(float3(0,0,0), part.CameraPosition.xyz);
             if (partCameraDist < currentNearestPartDist)
             {
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
