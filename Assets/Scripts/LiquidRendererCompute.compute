@@ -93,7 +93,6 @@ void main (uint3 id : SV_DispatchThreadID)
             {
                 cell.FurthestParticle = part.CameraPosition;
             }
-            
         }
     }
 
@@ -197,18 +196,25 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float2 scaleAmount = ScreenGrabDimensions.xy /CellsDimension.xy;
     float2 index2DGrab = id.xy * scaleAmount;
 
+    //dithering setup
+    const float kernal[4]= {1.0 /4.0, 2.0/4.0, 3.0/4.0, 1.0/4.0};
+    const float kernal2[4]= {0.5 /4.0, 1.5/4.0, 2.5/4.0, 1.5/4.0};
+    int2 leftOver = index2D % 2;
+    int flatDitherIndex = leftOver.x + leftOver.y * 2;
+    float floor = kernal[flatDitherIndex];
+    float floor2 = kernal2[flatDitherIndex];
+
     ScreenCell cell = ScreenCells2[indexFlat];
-    //ScreenCell cell = boxBlurScreenCell(id.xy, ScreenCells);
     float3 lightDir = normalize(LightPosition.xyz);
 
     //difuse
-    
     float4 diffuse = BaseColor * max(dot(lightDir, cell.NearestNormal), 0.0);
+    diffuse = step(floor, diffuse) * diffuse;
     float4 diffuseAndAmbient = lerp(diffuse, AmbientColor, DiffuseVsAmbient);
 
     //refract + tint
     float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
-    float dist = max(distBetween,1);
+    float dist = max(distBetween, 1);
     float refractionAmount = RefractionMultiplier;
     float2 refractedUV = cell.NearestNormal.xy * refractionAmount * dist + index2DGrab;
     float3 refractedPixel = ScreenGrab[refractedUV].xyz;
@@ -216,17 +222,20 @@ void main2 (uint3 id : SV_DispatchThreadID)
 
     //refract tint diffuse
     float3 refractTintDiffuse = lerp(diffuseAndAmbient, refractedAndTinted, DiffuseVsRefraction);
-    
+
+    //specular
     float3 reflectedRay = normalize(reflect(lightDir, cell.NearestNormal));
     float amountReflectedNormal = max(dot(float3(0,0,-1), reflectedRay), 0.0);
+    
+    float specularSmooth = pow(amountReflectedNormal, SpecularPower);
+    float specularClamped = step(floor, specularSmooth);
+    float specularAmount = lerp(specularClamped, specularSmooth, SpecularRoughness);
 
-    float specular = pow(amountReflectedNormal, SpecularPower);
-    float specularClamped = lerp(round(specular), specular, SpecularRoughness);
+    float3 specularColor = max(min(refractTintDiffuse.xyz*4, float3(1,1,1)), float3(0.5,0.5,0.5));
+
+    
     //tint the specular color based off the refraction color... but dont make it too dark, and never above (1,1,1)
-    float3 specularTinted = max(min(refractTintDiffuse.xyz*5, float3(1,1,1)), float3(0.5,0.5,0.5));
-    float3 color = lerp(refractTintDiffuse.xyz, specularTinted, specularClamped);
-    // Output[index2D] = float4(color,1);
-    // return;
+    float3 color = lerp(refractTintDiffuse.xyz, specularColor, specularAmount);
     if (cell.Alpha > AlphaThreshold)
     {
         Output[index2D] = float4(color, min(cell.Alpha*3, 1));
@@ -235,8 +244,4 @@ void main2 (uint3 id : SV_DispatchThreadID)
     {
         Output[index2D] = float4(0,0,0,0);
     }
-    // Output[index2D] = float4(cell.NearestNormal, 1);
 }
-
-//use circles for uv map...
-//then before final rendering... use uv offset for entire render with full resolution.....
