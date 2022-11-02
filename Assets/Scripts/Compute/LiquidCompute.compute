@@ -30,6 +30,7 @@ float DiffuseVsRefraction;
 float RefractionMultiplier;
 int SpecularPower;
 float SpecularRoughness;
+bool ShouldDither; //todo perf: remove if statement and replace with define
 
 [numthreads(8,8,1)]
 void main (uint3 id : SV_DispatchThreadID)
@@ -101,14 +102,17 @@ void main2 (uint3 id : SV_DispatchThreadID)
     int kernalSize = 4;
     int2 leftOver = index2D % kernalSize;
     int flatDitherIndex = leftOver.x + leftOver.y * kernalSize;
-    float floor = kernal[flatDitherIndex]/(kernalSize*kernalSize);
+    float ditherThreshold = kernal[flatDitherIndex]/(kernalSize*kernalSize);
 
     ScreenCell cell = ScreenCells2[indexFlat];
     float3 lightDir = normalize(LightPosition.xyz);
 
     //difuse
     float4 diffuse = BaseColor * max(dot(lightDir, cell.NearestNormal), 0.0);
-    diffuse = step(floor, diffuse) * diffuse;
+    if (ShouldDither)
+    {
+        diffuse = step(ditherThreshold, diffuse) * diffuse;
+    }
     float4 diffuseAndAmbient = lerp(diffuse, AmbientColor, DiffuseVsAmbient);
 
     //refract + tint
@@ -127,7 +131,11 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float amountReflectedNormal = max(dot(float3(0,0,-1), reflectedRay), 0.0);
     
     float specularSmooth = pow(amountReflectedNormal, SpecularPower);
-    float specularClamped = step(floor, specularSmooth);
+    float specularClamped = round(specularSmooth);
+    if (ShouldDither)
+    {
+        specularClamped = step(ditherThreshold, specularSmooth);
+    }
     float specularAmount = lerp(specularClamped, specularSmooth, SpecularRoughness);
 
     float3 specularColor = max(min(refractTintDiffuse.xyz*4, float3(1,1,1)), float3(0.5,0.5,0.5));

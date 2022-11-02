@@ -39,7 +39,9 @@ public class CreateLiquid : MonoBehaviour
     public float RefractionMultiplier = 10f;
     public int SpecularPower = 5;
     [Range(0,1)] public float SpecularRoughness = 0.1f;
+    public bool ShouldDither; //todo perf: remove if statement and replace with define
 
+    [Space]
     public int BlurNumber = 2;
 
 
@@ -141,7 +143,6 @@ public class CreateLiquid : MonoBehaviour
             //todo nearclip somehow effects radius and it shouldnt....
             //todo fov changes dont effect radius like it should.
             part.Radius = (1/(clipPos.z))*0.3f;
-            // part.NearestPosition = correctedClipPos;
             _particles[i] = part;
         }
         #endregion
@@ -169,6 +170,7 @@ public class CreateLiquid : MonoBehaviour
         ComputeShader.SetFloat("RefractionMultiplier", RefractionMultiplier);
         ComputeShader.SetInt("SpecularPower", SpecularPower);
         ComputeShader.SetFloat("SpecularRoughness", SpecularRoughness);
+        ComputeShader.SetBool("ShouldDither", ShouldDither);
         
         ComputeShader.SetVector("LightPosition", lightScreenPos);
 
