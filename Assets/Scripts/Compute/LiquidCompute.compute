@@ -14,7 +14,8 @@ RWStructuredBuffer<ScreenCell> ScreenCells2;
 
 float4 ScreenGrabDimensions;
 Texture2D<float4> ScreenGrab;
-RWTexture2D<float4> Output;
+RWTexture2D<float4> OutputColor;
+RWTexture2D<float4> OutputSpecial;
 
 float4 LightPosition = float4(5,0,0,20);
 float AlphaAtCenter;
@@ -120,12 +121,12 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
     float dist = max(distBetween, 1);
     float refractionAmount = RefractionMultiplier;
-    float2 refractedUV = cell.NearestNormal.xy * refractionAmount * dist + index2DGrab;
-    float3 refractedPixel = ScreenGrab[refractedUV].xyz;
-    float3 refractedAndTinted = BaseTint.xyz * refractedPixel;
+    float2 refractedUV = (index2DGrab);
+    // float3 refractedPixel = ScreenGrab[refractedUV].xyz;
+    // float3 refractedAndTinted = BaseTint.xyz * refractedPixel;
 
     //refract tint diffuse
-    float3 refractTintDiffuse = lerp(diffuseAndAmbient, refractedAndTinted, DiffuseVsRefraction);
+    float3 refractTintDiffuse = lerp(diffuseAndAmbient, float3(1,0,1), 0);
 
     //specular
     float3 reflectedRay = normalize(reflect(lightDir, cell.NearestNormal));
@@ -146,10 +147,13 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float3 color = lerp(refractTintDiffuse.xyz, specularColor, specularAmount);
     if (cell.Alpha > AlphaThreshold)
     {
-        Output[index2D] = float4(color, min(cell.Alpha*3, 1));
+        OutputColor[index2D] = float4(color, cell.Alpha);
     }
     else
     {
-        Output[index2D] = float4(0,0,0,0);
+        OutputColor[index2D] = float4(0,0,0,0);
     }
+
+    float cellDistance = distance(cell.NearestParticle, float3(0,0,0));
+    OutputSpecial[index2D] = float4(refractedUV, cellDistance, 0);
 }

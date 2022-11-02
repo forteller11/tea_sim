@@ -1,6 +1,8 @@
 pouring!
 
 depth testing
+---> use shader to get depth buffer....
+---> 
 color based on speed/turbulence
 
 actualy simulate particles like water!

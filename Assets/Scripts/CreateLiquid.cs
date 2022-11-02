@@ -15,15 +15,19 @@ public class CreateLiquid : MonoBehaviour
     private ScreenCell [] _screenCells;
     public int2 ScreenResolution = new int2(32,32);
     private ScreenParticle [] _particles;
-    [SerializeField] MeshRenderer _liquidRenderer;
+    // [SerializeField] MeshRenderer _liquidRenderer;
     [SerializeField] MeshRenderer _screenGrabRenderer;
+    [SerializeField] Material _liquidMaterial;
     [SerializeField] Transform _pointLight;
 
     public ComputeShader ComputeShader;
     public ComputeBuffer _particlesBuffer;
     private ComputeBuffer _screenCellsBuffer;
     private ComputeBuffer _screenCells2Buffer;
-    private RenderTexture _renderTexture;
+    
+    private RenderTexture _liquidOutputTextureColor;
+    private RenderTexture _liquidOutputTextureSpecial;
+    // private RenderTexture _liquidShaderOutput;
 
     [Header("Compute Params")]
     [Range(0,1)] public float AlphaAtCenter = .1f;
@@ -54,53 +58,66 @@ public class CreateLiquid : MonoBehaviour
     private int _particleHandle = -1;
     private int _screenCellsHandle = -1;
     private int _screenCells2Handle = -1;
-    private int _outputTextureHandle = -1;
+    private int _outputColorHandle = -1;
     private int _screenGrabTextureHandle = -1;
+    private int _outputSpecialHandle = -1;
 
-    private RenderTexture _targetRT;
+    private RenderTexture _cameraTargetRT;
     void Start()
     {
         _particles = new ScreenParticle[Renderers.Count];
-            _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
+        _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
         
-            unsafe
-            {
-                _particlesBuffer = new ComputeBuffer(_particles.Length, sizeof(ScreenParticle));
-                _screenCellsBuffer  = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
-                _screenCells2Buffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
-            }
+        unsafe
+        {
+            _particlesBuffer = new ComputeBuffer(_particles.Length, sizeof(ScreenParticle));
+            _screenCellsBuffer  = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
+            _screenCells2Buffer = new ComputeBuffer(_screenCells.Length, sizeof(ScreenCell));
+        }
 
-            _renderTexture = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
-            _renderTexture.enableRandomWrite = true;
-            _renderTexture.filterMode = FilterMode.Point;
-            _main1Compute = ComputeShader.FindKernel("main");
-            _main2Compute = ComputeShader.FindKernel("main2");
-            _blurCompute = ComputeShader.FindKernel("blurKernal");
-            _particleHandle = Shader.PropertyToID("ScreenParticles");
-            _screenCellsHandle = Shader.PropertyToID("ScreenCells");
-            _screenCells2Handle = Shader.PropertyToID("ScreenCells2");
-            _outputTextureHandle = Shader.PropertyToID("Output");
-            _screenGrabTextureHandle = Shader.PropertyToID("ScreenGrab");
-            _liquidRenderer.material.mainTexture = _renderTexture;
-            _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
-            
-            _screenCellsBuffer.SetData(_screenCells);
-            _screenCells2Buffer.SetData(_screenCells);
-            
-            //kernal 1
-            ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
-            ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
-            
-            //blur kernal
-            ComputeShader.SetBuffer(_blurCompute, _screenCellsHandle, _screenCellsBuffer);
-            ComputeShader.SetBuffer(_blurCompute, _screenCells2Handle, _screenCells2Buffer);
-            
-            //kernal 2
-            ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
-            ComputeShader.SetBuffer(_main2Compute, _screenCells2Handle, _screenCells2Buffer);
-            ComputeShader.SetTexture(_main2Compute, _outputTextureHandle, _renderTexture);
-            _targetRT = Camera.main.targetTexture;
-            ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, _targetRT);
+        _liquidOutputTextureColor = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
+        _liquidOutputTextureColor.enableRandomWrite = true;
+        _liquidOutputTextureColor.filterMode = FilterMode.Point;
+        
+        _liquidOutputTextureSpecial = new RenderTexture(ScreenResolution.x, ScreenResolution.y, 0, GraphicsFormat.R32G32B32A32_SFloat);
+        _liquidOutputTextureSpecial.enableRandomWrite = true;
+        // _liquidOutputTextureSpecial.filterMode = FilterMode.Point;
+        
+        _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
+        _cameraTargetRT = Camera.main.targetTexture;
+
+        _main1Compute = ComputeShader.FindKernel("main");
+        _main2Compute = ComputeShader.FindKernel("main2");
+        _blurCompute = ComputeShader.FindKernel("blurKernal");
+        _particleHandle = Shader.PropertyToID("ScreenParticles");
+        _screenCellsHandle = Shader.PropertyToID("ScreenCells");
+        _screenCells2Handle = Shader.PropertyToID("ScreenCells2");
+        _outputColorHandle = Shader.PropertyToID("OutputColor");
+        _outputSpecialHandle = Shader.PropertyToID("OutputSpecial");
+        _screenGrabTextureHandle = Shader.PropertyToID("ScreenGrab");
+        
+        _screenCellsBuffer.SetData(_screenCells);
+        _screenCells2Buffer.SetData(_screenCells);
+        
+        //kernal 1
+        ComputeShader.SetBuffer(_main1Compute, _particleHandle, _particlesBuffer);
+        ComputeShader.SetBuffer(_main1Compute, _screenCellsHandle, _screenCellsBuffer);
+        
+        //blur kernal
+        ComputeShader.SetBuffer(_blurCompute, _screenCellsHandle, _screenCellsBuffer);
+        ComputeShader.SetBuffer(_blurCompute, _screenCells2Handle, _screenCells2Buffer);
+        
+        //kernal 2
+        ComputeShader.SetBuffer(_main2Compute, _screenCellsHandle, _screenCellsBuffer);
+        ComputeShader.SetBuffer(_main2Compute, _screenCells2Handle, _screenCells2Buffer);
+        ComputeShader.SetTexture(_main2Compute, _outputColorHandle, _liquidOutputTextureColor);
+        ComputeShader.SetTexture(_main2Compute, _outputSpecialHandle, _liquidOutputTextureSpecial);
+        ComputeShader.SetTexture(_main2Compute, _screenGrabTextureHandle, _cameraTargetRT);
+        
+        //shader
+        _liquidMaterial.SetTexture("_MainTex", _liquidOutputTextureColor);
+        _liquidMaterial.SetTexture("_SpecialTex", _liquidOutputTextureSpecial);
+        _liquidMaterial.SetTexture("_ScreenGrab", _cameraTargetRT);
     }
 
     public void SetBlurDoubleBuffers(bool writeToScreenCells2)
@@ -154,7 +171,7 @@ public class CreateLiquid : MonoBehaviour
 
         ComputeShader.SetFloat("ParticlesLength", _particles.Length);
         ComputeShader.SetVector("CellsDimension", new Vector4(ScreenResolution.x, ScreenResolution.y, 0, 0));
-        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(_targetRT.width, _targetRT.height, 0, 0));
+        ComputeShader.SetVector("ScreenGrabDimensions", new Vector4(_cameraTargetRT.width, _cameraTargetRT.height, 0, 0));
         
         ComputeShader.SetFloat("AlphaAtCenter", AlphaAtCenter);
         ComputeShader.SetFloat("AlphaAtEdge", AlphaAtEdge);
