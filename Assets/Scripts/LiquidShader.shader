@@ -9,8 +9,8 @@ Shader "Unlit/LiquidShader"
 		_ScreenGrab ("ScreenGrab", 2D) = "white" {}
 		
 		_TintColor("Tint Color", Color) = (.25, .5, .8, 1)
-		_DiffuseVsRefraction("Diffuse Vs Refraction", Float ) = .2
-		_RefractionAmount("Refraction Amount", Float ) = 1
+		_DiffuseVsRefraction("Diffuse Vs Refraction",  Range(0,1) ) = .5
+		_RefractionAmount("Refraction Amount", Range(-0.3,0.3)) = .03
 	}
 	SubShader
 	{

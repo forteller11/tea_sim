@@ -145,14 +145,8 @@ void main2 (uint3 id : SV_DispatchThreadID)
     
     //tint the specular color based off the refraction color... but dont make it too dark, and never above (1,1,1)
     float3 color = lerp(refractTintDiffuse.xyz, specularColor, specularAmount);
-    if (cell.Alpha > AlphaThreshold)
-    {
-        OutputColor[index2D] = float4(color, 1);
-    }
-    else
-    {
-        OutputColor[index2D] = float4(0,0,0,0);
-    }
+    float alpha = cell.Alpha > AlphaThreshold ? cell.Alpha : 0;
+    OutputColor[index2D] = float4(color, alpha);
 
     float cellDistance = distance(cell.NearestParticle, float3(0,0,0));
     OutputSpecial[index2D] = float4(refractedUV, cellDistance, 0);

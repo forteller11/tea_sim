@@ -1,9 +1,11 @@
 pouring!
 
 depth testing
----> use shader to get depth buffer....
----> get depth buffer
+---> use shader to get depth buffer.... NOPE
+---> get depth buffer NOPE
+--> render depth texture on main camera after opaques
 ---> use transparent render feature!
+
     
 color based on speed/turbulence
 

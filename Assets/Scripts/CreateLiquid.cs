@@ -27,7 +27,8 @@ public class CreateLiquid : MonoBehaviour
     
     private RenderTexture _liquidOutputTextureColor;
     private RenderTexture _liquidOutputTextureSpecial;
-    // private RenderTexture _liquidShaderOutput;
+    public Camera _sceneCamera;
+    private RenderTexture _cameraTargetRT;
 
     [Header("Compute Params")]
     [Range(0,1)] public float AlphaAtCenter = .1f;
@@ -62,9 +63,10 @@ public class CreateLiquid : MonoBehaviour
     private int _screenGrabTextureHandle = -1;
     private int _outputSpecialHandle = -1;
 
-    private RenderTexture _cameraTargetRT;
     void Start()
     {
+        _cameraTargetRT = _sceneCamera.targetTexture;
+
         _particles = new ScreenParticle[Renderers.Count];
         _screenCells = new ScreenCell[ScreenResolution.x * ScreenResolution.y];
         
@@ -83,8 +85,7 @@ public class CreateLiquid : MonoBehaviour
         _liquidOutputTextureSpecial.enableRandomWrite = true;
         // _liquidOutputTextureSpecial.filterMode = FilterMode.Point;
         
-        _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
-        _cameraTargetRT = Camera.main.targetTexture;
+        _screenGrabRenderer.material.mainTexture = _cameraTargetRT;
 
         _main1Compute = ComputeShader.FindKernel("main");
         _main2Compute = ComputeShader.FindKernel("main2");
@@ -131,7 +132,7 @@ public class CreateLiquid : MonoBehaviour
     void Update()
     {
         #region
-        var cam = Camera.main;
+        var cam = _sceneCamera;
         var worldToViewMat = cam.worldToCameraMatrix;
         var aspectRatio = (float) Screen.width / Screen.height;
         float nearClip = cam.nearClipPlane;
