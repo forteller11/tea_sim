@@ -70,7 +70,8 @@ Shader "Unlit/LiquidShader"
 
 				fixed3 diffuseColor = liquidCol.xyz;
 				fixed3 refractCol = tex2D(_ScreenGrab, refractedUV).xyz;
-				fixed3 diffuseRefracted = lerp(diffuseColor, refractCol, _DiffuseVsRefraction);
+				fixed3 refractTintCol = _TintColor.xyz * refractCol;
+				fixed3 diffuseRefracted = lerp(diffuseColor, refractTintCol, _DiffuseVsRefraction);
 				fixed4 output = fixed4(diffuseRefracted, alpha);
 				return output;
 			}

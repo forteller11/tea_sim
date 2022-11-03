@@ -29,6 +29,7 @@ public class CreateLiquid : MonoBehaviour
     private RenderTexture _liquidOutputTextureSpecial;
     public Camera _sceneCamera;
     private RenderTexture _cameraTargetRT;
+    [SerializeField] RenderTexture _depthRT;
 
     [Header("Compute Params")]
     [Range(0,1)] public float AlphaAtCenter = .1f;
@@ -121,6 +122,26 @@ public class CreateLiquid : MonoBehaviour
         _liquidMaterial.SetTexture("_ScreenGrab", _cameraTargetRT);
     }
 
+    //BlitColorAndDepth()
+    //then use the _CameraDepthTexture from the shader 
+    //https://docs.unity3d.com/Packages/com.unity.render-pipelines.universal@14.0/manual/renderer-features/how-to-fullscreen-blit.html
+    //https://docs.unity3d.com/Packages/com.unity.render-pipelines.core@13.1/api/UnityEngine.Rendering.Blitter.html
+    
+    // private void OnRenderImage(RenderTexture source, RenderTexture destination)
+    // {
+    //     //https://forum.unity.com/threads/rendering-using-another-cameras-depth-buffer.749522/ 
+    //     Graphics.SetRenderTarget(_depthRT);
+    //     GL.Clear(false, true, Color.clear);
+    //     Graphics.SetRenderTarget(null);
+    //
+    //     _sceneCamera.SetTargetBuffers(_depthRT.colorBuffer, source.depthBuffer);
+    //
+    //     // presumably you have to composite the vfx cam's output back into the main image?
+    //     // and presumably you've already assigned the VFXRenderTarget as a texture for the composite material
+    //
+    //     Graphics.Blit(source, destination);
+    // }
+    
     public void SetBlurDoubleBuffers(bool writeToScreenCells2)
     {
         var srcBuffer = writeToScreenCells2 ? _screenCellsBuffer : _screenCells2Buffer;
