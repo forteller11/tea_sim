@@ -5,6 +5,7 @@ depth testing
 ---> get depth buffer NOPE
 --> render depth texture on main camera after opaques
 ---> use transparent render feature!
+//https://forum.unity.com/threads/how-to-pass-depth-texture-to-shaders-in-custom-srp.1200985/ deotg sgader oreoass,,,,
 
     
 color based on speed/turbulence

@@ -5,12 +5,13 @@ Shader "Unlit/LiquidShader"
 		_MainTex ("Color", 2D) = "white" {}
 		_SpecialTex ("Depth", 2D) = "white" {}
 		//special tex
-		//r,g: uv refraction, b: depth
+		//r,g: uv refraction, b: depth?
 		_ScreenGrab ("ScreenGrab", 2D) = "white" {}
 		
 		_TintColor("Tint Color", Color) = (.25, .5, .8, 1)
 		_DiffuseVsRefraction("Diffuse Vs Refraction",  Range(0,1) ) = .5
 		_RefractionAmount("Refraction Amount", Range(-0.3,0.3)) = .03
+		_AlphaMult("_AlphaMult", Float) = 3
 	}
 	SubShader
 	{
@@ -25,8 +26,6 @@ Shader "Unlit/LiquidShader"
 			CGPROGRAM
 			#pragma vertex vert
 			#pragma fragment frag
-			// make fog work
-			#pragma multi_compile_fog
 			
 			#include "UnityCG.cginc"
 
@@ -39,19 +38,17 @@ Shader "Unlit/LiquidShader"
 			struct v2f
 			{
 				float2 uv : TEXCOORD0;
-				UNITY_FOG_COORDS(1)
 				float4 vertex : SV_POSITION;
 			};
 			float4 _TintColor;
 			float _DiffuseVsRefraction;
 			float _RefractionAmount;
+			float _AlphaMult;
 			
 			sampler2D _MainTex;
 			float4 _MainTex_ST;
 			sampler2D _SpecialTex;
-			// float4 _SpecialTex_ST;
 			sampler2D _ScreenGrab;
-			// float4 _ScreenGrab_ST;
 
 			v2f vert (appdata v)
 			{
@@ -69,7 +66,7 @@ Shader "Unlit/LiquidShader"
 				
 				fixed4 liquidCol = tex2D(_MainTex, i.uv);
 				float alpha = liquidCol.a;
-				alpha = min(1,alpha*3);
+				alpha = min(1,alpha*_AlphaMult);
 
 				fixed3 diffuseColor = liquidCol.xyz;
 				fixed3 refractCol = tex2D(_ScreenGrab, refractedUV).xyz;
