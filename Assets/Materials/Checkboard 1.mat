@@ -21,7 +21,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Checkboard 1
-  m_Shader: {fileID: -6465566751694194690, guid: 5ab4da14629c63440a4fcfe4aa8ae80e,
+  m_Shader: {fileID: -6465566751694194690, guid: b4cebef53f82bc94a89c6809cb776a7c,
     type: 3}
   m_ValidKeywords: []
   m_InvalidKeywords: []
