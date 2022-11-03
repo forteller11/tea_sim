@@ -19,9 +19,6 @@ public class CreateLiquid : MonoBehaviour
     [SerializeField] MeshRenderer _screenGrabRenderer;
     [SerializeField] Material _liquidMaterial;
     [SerializeField] Transform _pointLight;
-    [SerializeField] Camera _sceneCamera;
-    private RenderTexture _cameraTargetRT;
-
 
     public ComputeShader ComputeShader;
     public ComputeBuffer _particlesBuffer;
@@ -65,6 +62,7 @@ public class CreateLiquid : MonoBehaviour
     private int _screenGrabTextureHandle = -1;
     private int _outputSpecialHandle = -1;
 
+    private RenderTexture _cameraTargetRT;
     void Start()
     {
         _particles = new ScreenParticle[Renderers.Count];
@@ -86,7 +84,7 @@ public class CreateLiquid : MonoBehaviour
         // _liquidOutputTextureSpecial.filterMode = FilterMode.Point;
         
         _screenGrabRenderer.material.mainTexture = Camera.main.targetTexture;
-        _cameraTargetRT = _sceneCamera.targetTexture;
+        _cameraTargetRT = Camera.main.targetTexture;
 
         _main1Compute = ComputeShader.FindKernel("main");
         _main2Compute = ComputeShader.FindKernel("main2");

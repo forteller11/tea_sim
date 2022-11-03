@@ -9,9 +9,8 @@ Shader "Unlit/LiquidShader"
 		_ScreenGrab ("ScreenGrab", 2D) = "white" {}
 		
 		_TintColor("Tint Color", Color) = (.25, .5, .8, 1)
-		_DiffuseVsRefraction("Diffuse Vs Refraction", Range(0.0, 1.0)) = .2
-		_RefractionAmount("Refraction Amount",  Range(-0.3, 0.3) ) = 0.1
-		_AlphaThreshold("Alpha Treshold", Float ) = 0.2
+		_DiffuseVsRefraction("Diffuse Vs Refraction", Float ) = .2
+		_RefractionAmount("Refraction Amount", Float ) = 1
 	}
 	SubShader
 	{
@@ -52,8 +51,6 @@ Shader "Unlit/LiquidShader"
 			sampler2D _SpecialTex;
 			// float4 _SpecialTex_ST;
 			sampler2D _ScreenGrab;
-			sampler2D _CameraDepthTexture;
-			// sampler2D _CameraOpaqueTexture;
 			// float4 _ScreenGrab_ST;
 
 			v2f vert (appdata v)
@@ -75,20 +72,9 @@ Shader "Unlit/LiquidShader"
 				alpha = min(1,alpha*3);
 
 				fixed3 diffuseColor = liquidCol.xyz;
-
-				//todo use _CameraOpaqueTexture instead.... look into https://forum.unity.com/threads/how-to-make-_cameraopaquetexture-work-with-new-2d-renderer.808260/
-				//(requires custom renderer feature i think)
 				fixed3 refractCol = tex2D(_ScreenGrab, refractedUV).xyz;
 				fixed3 diffuseRefracted = lerp(diffuseColor, refractCol, _DiffuseVsRefraction);
-
-				fixed4 output = fixed4(diffuseRefracted, 1);
-				
-				// fixed4 depthCol = tex2D(_CameraDepthTexture, i.uv);
-				// output = fixed4(fixed3(depthCol.r, depthCol.r, depthCol.r), 1);
-
-				//Linear01Depth
-				// output.rgb = fixed3(_CameraDepthTexture);
-				// UNITY_OUTPUT_DEPTH(i.depth);
+				fixed4 output = fixed4(diffuseRefracted, alpha);
 				return output;
 			}
 			ENDCG

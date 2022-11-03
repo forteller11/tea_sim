@@ -4,7 +4,6 @@ depth testing
 ---> use shader to get depth buffer....
 ---> get depth buffer
 ---> use transparent render feature!
---> render depth texture on main camera after opaques
     
 color based on speed/turbulence
 
