@@ -67,7 +67,7 @@ Shader "Unlit/LiquidShader"
 				fixed4 specialTex = tex2D(_SpecialTex, i.uv);
 				fixed4 screenDepth = tex2D(_ScreenGrabDepth, i.uv);
 				// return fixed4(screenDepth.xyz, 1);
-				if (specialTex.b - 0.85 < screenDepth.r)
+				if (specialTex.z > screenDepth.r)
 				{
 					return fixed4(0,0,0,0);
 				}
