@@ -1,6 +1,6 @@
 #include "Assets/Scripts/CreateLiquid.cs.hlsl"
 
-//assumes w is a homoegenous coord
+//assumes w is a homogeneous coord
 float3 cameraToViewPosition(float4 cameraPos)
 {
     float3 viewPos =  cameraPos.xyz / cameraPos.w;

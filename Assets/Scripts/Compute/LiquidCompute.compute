@@ -68,7 +68,8 @@ void main (uint3 id : SV_DispatchThreadID)
                 cell.NearestParticle = part.CameraPosition.xy;
 
                 //todo logic: take into account camera pos + starting frustrum for this value
-                cell.NearestDepth = part.CameraPosition.z/1000;
+                cell.NearestDepth = part.CameraPosition.z;
+                cell.NearestDepth = part.CameraPosition.z / 1000;
             }
             if (partCameraDist > currentFurthestPartDist)
             {

@@ -64,8 +64,8 @@ Shader "Unlit/LiquidShader"
 			
 			fixed4 frag (v2f i) : SV_Target
 			{
-				fixed4 specialTex = tex2D(_SpecialTex, i.uv);
-				fixed4 screenDepth = tex2D(_ScreenGrabDepth, i.uv);
+				float4 specialTex = tex2D(_SpecialTex, i.uv);
+				float4 screenDepth = tex2D(_ScreenGrabDepth, i.uv);
 				// return fixed4(screenDepth.xyz, 1);
 				if (specialTex.z > screenDepth.r)
 				{
@@ -74,7 +74,7 @@ Shader "Unlit/LiquidShader"
 				
 				float2 refractedUV = i.uv + (specialTex.xy * _RefractionAmount);
 				
-				fixed4 liquidCol = tex2D(_MainTex, i.uv);
+				float4 liquidCol = tex2D(_MainTex, i.uv);
 				float alpha = liquidCol.a;
 				alpha = min(1, alpha*_AlphaMult);
 
