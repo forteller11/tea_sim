@@ -17,8 +17,11 @@ struct ScreenParticle
 struct ScreenCell
 {
     float Alpha;
-    float3 NearestParticle; // x: x y: y z: z 
-    float3 FurthestParticle; // x: x y: y z: z 
+    float2 NearestParticle; // x: x y: y 
+    float2 FurthestParticle; // x: x y: y 
+    float NearestDepth;
     float3 NearestNormal; // x: x y: y z: z 
 };
+
+
 #endif

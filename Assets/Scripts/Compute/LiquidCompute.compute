@@ -65,11 +65,12 @@ void main (uint3 id : SV_DispatchThreadID)
             if (partCameraDist < currentNearestPartDist)
             {
                 cell.NearestNormal = GetScreenNormal(cellScreenPos, part);
-                cell.NearestParticle = part.CameraPosition;
+                cell.NearestParticle = part.CameraPosition.xy;
+                cell.NearestDepth = part.CameraPosition.z / part.CameraPosition.w;
             }
             if (partCameraDist > currentFurthestPartDist)
             {
-                cell.FurthestParticle = part.CameraPosition;
+                cell.FurthestParticle = part.CameraPosition.xy;
             }
         }
     }
@@ -118,10 +119,9 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float4 diffuseAndAmbient = lerp(diffuse, AmbientColor, DiffuseVsAmbient);
 
     //refract + tint
-    float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
-    float dist = max(distBetween, 1);
-    float refractionAmount = RefractionMultiplier;
-    float2 refractedUV = (index2DGrab + (cell.NearestNormal.xy * dist));
+    // float distBetween = (distance(cell.NearestParticle, cell.FurthestParticle)+0.5)/10;
+    // float dist = max(distBetween, 1);
+    float2 refractedUV = (index2DGrab + (cell.NearestNormal.xy));
     // float3 refractedPixel = ScreenGrab[refractedUV].xyz;
     // float3 refractedAndTinted = BaseTint.xyz * refractedPixel;
 
@@ -148,6 +148,5 @@ void main2 (uint3 id : SV_DispatchThreadID)
     float alpha = cell.Alpha > AlphaThreshold ? cell.Alpha : 0;
     OutputColor[index2D] = float4(color, alpha);
 
-    float cellDistance = distance(cell.NearestParticle, float3(0,0,0));
-    OutputSpecial[index2D] = float4(refractedUV, cellDistance, 0);
+    OutputSpecial[index2D] = float4(refractedUV, cell.NearestDepth, 0);
 }

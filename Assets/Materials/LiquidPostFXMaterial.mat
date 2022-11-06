@@ -77,6 +77,10 @@ Material:
         m_Texture: {fileID: 8600000, guid: cbd4673659c6b5b4b92e4a78feba8497, type: 2}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _ScreenGrabDepth:
+        m_Texture: {fileID: 8600000, guid: 1833de9187202484389ab6e307672822, type: 2}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _SpecGlossMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -109,7 +113,7 @@ Material:
     - _Cutoff: 0.5
     - _DetailAlbedoMapScale: 1
     - _DetailNormalMapScale: 1
-    - _DiffuseVsRefraction: 0.39
+    - _DiffuseVsRefraction: 0.338
     - _DstBlend: 0
     - _EnvironmentReflections: 1
     - _GlossMapScale: 0
@@ -120,7 +124,7 @@ Material:
     - _Parallax: 0.005
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _RefractionAmount: 0.01
+    - _RefractionAmount: 0.032
     - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
@@ -133,5 +137,5 @@ Material:
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
     - _SpecColor: {r: 0.19999996, g: 0.19999996, b: 0.19999996, a: 1}
-    - _TintColor: {r: 0.8490566, g: 0.58675057, b: 0.5807227, a: 1}
+    - _TintColor: {r: 0.8509804, g: 0.62785834, b: 0.5803922, a: 1}
   m_BuildTextureStacks: []

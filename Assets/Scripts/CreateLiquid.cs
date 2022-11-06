@@ -28,8 +28,8 @@ public class CreateLiquid : MonoBehaviour
     private RenderTexture _liquidOutputTextureColor;
     private RenderTexture _liquidOutputTextureSpecial;
     public Camera _sceneCamera;
+    public Camera _sceneDepthCamera;
     private RenderTexture _cameraTargetRT;
-    [SerializeField] RenderTexture _depthRT;
 
     [Header("Compute Params")]
     [Range(0,1)] public float AlphaAtCenter = .1f;
@@ -120,6 +120,7 @@ public class CreateLiquid : MonoBehaviour
         _liquidMaterial.SetTexture("_MainTex", _liquidOutputTextureColor);
         _liquidMaterial.SetTexture("_SpecialTex", _liquidOutputTextureSpecial);
         _liquidMaterial.SetTexture("_ScreenGrab", _cameraTargetRT);
+        _liquidMaterial.SetTexture("_ScreenGrabDepth", _sceneDepthCamera.targetTexture);
     }
 
     //BlitColorAndDepth()
@@ -287,7 +288,8 @@ public struct ScreenParticle
 public struct ScreenCell
 {
     public float Alpha;
-    public float3 NearestParticle;
-    public float3 FurthestParticle;
+    public float2 NearestParticle;
+    public float2 FurthestParticle;
+    public float NearestDepth;
     public float3 NearestNormal;
 }

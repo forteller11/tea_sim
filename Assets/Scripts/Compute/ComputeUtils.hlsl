@@ -28,6 +28,8 @@ float3 GetScreenNormal(float2 clipPoint, in ScreenParticle screenParticle)
 void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
 {
     ScreenCell otherCell;
+    //if neighbors cell is alpha (implying it is not a liquid cell)
+    //don't blend into it... blend with yourself instead (effectively no change)
     if (other.Alpha > 0)
     {
         otherCell = other;
@@ -35,13 +37,13 @@ void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
     {
         otherCell = cell;
     }
-   //otherCell = other;
         //this breaks normal... must be renormalized at the end
         cell.NearestNormal = lerp(cell.NearestNormal, otherCell.NearestNormal, addedWeight);
     
         cell.Alpha += otherCell.Alpha * addedWeight;
         cell.FurthestParticle += otherCell.FurthestParticle * addedWeight;
         cell.NearestParticle += otherCell.NearestParticle * addedWeight;
+        cell.NearestDepth += otherCell.NearestDepth * addedWeight;
     
 }
 
@@ -62,6 +64,7 @@ ScreenCell boxBlurScreenCell(int2 index, int2 cellsDimensions, RWStructuredBuffe
     cell.NearestNormal = float3(0,0,0);
     cell.FurthestParticle = 0;
     cell.NearestParticle = 0;
+    cell.NearestDepth = 0;
     
     float selfWeight = 0.16;
     float manhatten1Weight = 0.06;

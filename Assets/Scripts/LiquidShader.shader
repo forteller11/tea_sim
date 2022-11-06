@@ -7,6 +7,7 @@ Shader "Unlit/LiquidShader"
 		//special tex
 		//r,g: uv refraction, b: depth?
 		_ScreenGrab ("ScreenGrab", 2D) = "white" {}
+		_ScreenGrabDepth ("ScreenGrabDepth", 2D) = "white" {}
 		
 		_TintColor("Tint Color", Color) = (.25, .5, .8, 1)
 		_DiffuseVsRefraction("Diffuse Vs Refraction",  Range(0,1) ) = .5
@@ -49,6 +50,8 @@ Shader "Unlit/LiquidShader"
 			float4 _MainTex_ST;
 			sampler2D _SpecialTex;
 			sampler2D _ScreenGrab;
+			sampler2D _ScreenGrabDepth;
+			
 
 			v2f vert (appdata v)
 			{
@@ -62,11 +65,18 @@ Shader "Unlit/LiquidShader"
 			fixed4 frag (v2f i) : SV_Target
 			{
 				fixed4 specialTex = tex2D(_SpecialTex, i.uv);
+				fixed4 screenDepth = tex2D(_ScreenGrabDepth, i.uv);
+				// return fixed4(screenDepth.xyz, 1);
+				if (specialTex.b - 0.85 < screenDepth.r)
+				{
+					return fixed4(0,0,0,0);
+				}
+				
 				float2 refractedUV = i.uv + (specialTex.xy * _RefractionAmount);
 				
 				fixed4 liquidCol = tex2D(_MainTex, i.uv);
 				float alpha = liquidCol.a;
-				alpha = min(1,alpha*_AlphaMult);
+				alpha = min(1, alpha*_AlphaMult);
 
 				fixed3 diffuseColor = liquidCol.xyz;
 				fixed3 refractCol = tex2D(_ScreenGrab, refractedUV).xyz;
