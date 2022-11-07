@@ -2,8 +2,8 @@
 #pragma kernel main
 #pragma kernel blurKernal
 #pragma kernel main2
-#include "Assets/Scripts/CreateLiquid.cs.hlsl"
-#include "Assets/Scripts/Compute/ComputeUtils.hlsl"
+#include "Assets/Scripts/Liquid/LiquidStructs.cs.hlsl"
+#include "Assets/Scripts/Liquid/ComputeUtils.hlsl"
 
 float ParticlesLength;
 StructuredBuffer<ScreenParticle> ScreenParticles;

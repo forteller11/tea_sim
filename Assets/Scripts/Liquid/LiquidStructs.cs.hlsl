@@ -2,9 +2,9 @@
 // This file was automatically generated. Please don't edit by hand. Execute Editor command [ Edit > Rendering > Generate Shader Includes ] instead
 //
 
-#ifndef CREATELIQUID_CS_HLSL
-#define CREATELIQUID_CS_HLSL
-// Generated from ScreenParticle
+#ifndef LIQUIDSTRUCTS_CS_HLSL
+#define LIQUIDSTRUCTS_CS_HLSL
+// Generated from Charly.Liquid.ScreenParticle
 // PackingRules = Exact
 struct ScreenParticle
 {
@@ -12,7 +12,7 @@ struct ScreenParticle
     float Radius;
 };
 
-// Generated from ScreenCell
+// Generated from Charly.Liquid.ScreenCell
 // PackingRules = Exact
 struct ScreenCell
 {

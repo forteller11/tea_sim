@@ -1,4 +1,4 @@
-#include "Assets/Scripts/CreateLiquid.cs.hlsl"
+#include "Assets/Scripts/Liquid/LiquidStructs.cs.hlsl"
 
 //assumes w is a homogeneous coord
 float3 cameraToViewPosition(float4 cameraPos)
@@ -43,6 +43,8 @@ void weightedAdd(inout ScreenCell cell, in ScreenCell other, float addedWeight)
         cell.Alpha += otherCell.Alpha * addedWeight;
         cell.FurthestParticle += otherCell.FurthestParticle * addedWeight;
         cell.NearestParticle += otherCell.NearestParticle * addedWeight;
+
+    
         cell.NearestDepth += otherCell.NearestDepth * addedWeight;
     
 }
@@ -101,6 +103,8 @@ ScreenCell boxBlurScreenCell(int2 index, int2 cellsDimensions, RWStructuredBuffe
     ScreenCell src = cellsSrc[indexFlat];
     cell.NearestParticle = src.NearestParticle;
     cell.FurthestParticle = src.FurthestParticle;
+    cell.NearestDepth = src.NearestDepth;
+
     cell.NearestNormal = normalize(cell.NearestNormal);
     return cell;
 }
